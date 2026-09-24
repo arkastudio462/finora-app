@@ -1,0 +1,31 @@
+node_modules/
+.expo/
+dist/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Android
+*.aab
+*.apk
+*.ap_
+*.aab
+
+# iOS
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Temporary
+npm-debug.*
+yarn-debug.*
+yarn-error.*
