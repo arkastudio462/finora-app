@@ -31,6 +31,27 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Setup node stderr capture (debug autolinking)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/shim"
+          REAL_NODE="$(command -v node)"
+          cat > "$RUNNER_TEMP/shim/node" <<EOF
+          #!/usr/bin/env bash
+          LOG="$RUNNER_TEMP/node-shim.log"
+          { echo "=== \$(date -u +%FT%TZ) cwd=\$PWD"; printf 'args:'; printf ' %q' "\$@"; echo; } >> "\$LOG"
+          ERR="\$(mktemp)"
+          "$REAL_NODE" "\$@" 2> "\$ERR"
+          rc=\$?
+          cat "\$ERR" >&2
+          cat "\$ERR" >> "\$LOG"
+          rm -f "\$ERR"
+          echo "exit=\$rc" >> "\$LOG"
+          exit \$rc
+          EOF
+          chmod +x "$RUNNER_TEMP/shim/node"
+          echo "$RUNNER_TEMP/shim" >> "$GITHUB_PATH"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -65,6 +86,12 @@ jobs:
       - name: Build APK (assembleRelease)
         working-directory: android
         run: ./gradlew assembleRelease --stacktrace
+
+      - name: Dump node stderr log (debug)
+        if: failure()
+        run: |
+          echo "===== node-shim.log ====="
+          tail -c 300000 "$RUNNER_TEMP/node-shim.log" 2>/dev/null || echo "(no log)"
 
       - name: Package APK
         id: apk
