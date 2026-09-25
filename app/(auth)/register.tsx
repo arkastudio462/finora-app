@@ -8,7 +8,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -18,12 +17,14 @@ import { COLORS } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 export default function RegisterScreen() {
   const colors = useColors();
   const styles = useStyles(createStyles);
   const { signUp } = useAuth();
   const router = useRouter();
+  const alert = useAlert();
   const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
@@ -35,17 +36,17 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+      alert.error('Please fill in all fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      alert.error('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      alert.error('Password must be at least 6 characters');
       return;
     }
 
@@ -54,16 +55,17 @@ export default function RegisterScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Registration Failed', error.message);
+      alert.error(error.message, 'Registration Failed');
       return;
     }
 
     if (data.user) {
-      Alert.alert(
-        'Check your email',
-        'We sent you a confirmation link. Please verify your email before signing in.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      alert.show({
+        title: 'Check your email',
+        message: 'We sent you a confirmation link. Please verify your email before signing in.',
+        type: 'info',
+        buttons: [{ text: 'OK', style: 'primary', onPress: () => router.back() }],
+      });
     }
   };
 

@@ -8,7 +8,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,6 +22,7 @@ import { COLORS, CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
   { key: 'cash', label: 'Tunai', icon: 'cash' },
@@ -37,6 +37,7 @@ export default function AddTransactionModal() {
   const { showToast } = useToast();
   const { categories: customCategories, addCategory } = useCustomCategories();
   const router = useRouter();
+  const alert = useAlert();
   const params = useLocalSearchParams<{
     editId?: string;
     type?: string;
@@ -90,7 +91,7 @@ export default function AddTransactionModal() {
   const handleAddCategory = async () => {
     const error = await addCategory(newCategory);
     if (error) {
-      Alert.alert('Kategori', error);
+      alert.error(error, 'Kategori');
       return;
     }
     setCategory(newCategory.trim());
@@ -101,11 +102,11 @@ export default function AddTransactionModal() {
 
   const handleSave = async () => {
     if (!amount || Number(amount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      alert.error('Please enter a valid amount');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Error', 'Please enter a description');
+      alert.error('Please enter a description');
       return;
     }
 
@@ -116,13 +117,13 @@ export default function AddTransactionModal() {
 
     if (photoUri) {
       if (!user) {
-        Alert.alert('Error', 'Anda belum login');
+        alert.error('Anda belum login');
         return;
       }
       showToast('Mengupload foto...', 'info');
       const uploaded = await uploadImageFile(RECEIPTS_BUCKET, photoUri, user.id);
       if ('error' in uploaded) {
-        Alert.alert('Gagal upload foto', uploaded.error);
+        alert.error(uploaded.error, 'Gagal upload foto');
         return;
       }
       finalImagePath = uploaded.path;
@@ -133,7 +134,7 @@ export default function AddTransactionModal() {
     if (isEdit && params.editId) {
       const existing = state.transactions.find((t) => t.id === params.editId);
       if (!existing) {
-        Alert.alert('Error', 'Transaction not found');
+        alert.error('Transaction not found');
         return;
       }
       error = await updateTransaction({
@@ -157,7 +158,7 @@ export default function AddTransactionModal() {
     }
 
     if (error) {
-      Alert.alert('Gagal menyimpan', error);
+      alert.error(error, 'Gagal menyimpan');
       return;
     }
 
@@ -322,7 +323,7 @@ export default function AddTransactionModal() {
             setPhotoUri(null);
             setImageRemoved(true);
           }}
-          onError={(message) => Alert.alert('Foto', message)}
+          onError={(message) => alert.error(message, 'Foto')}
         />
 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>

@@ -8,7 +8,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -21,6 +20,8 @@ import {
   Debt,
 } from '@/context/FinanceContext';
 import { useToast } from '@/components/Toast';
+import { useAlert } from '@/components/AppAlert';
+import DatePickerField from '@/components/DatePickerField';
 import { useCustomCategories } from '@/hooks/useCustomCategories';
 import { CATEGORIES } from '@/constants/theme';
 import type { Colors } from '@/constants/theme';
@@ -55,7 +56,6 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'receivable', label: 'Tagihan' },
 ];
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -94,6 +94,7 @@ export default function DebtsModal() {
   const styles = useStyles(createStyles);
   const { state, addDebt, updateDebt, deleteDebt, addDebtPayment, getDebtPaid } = useFinance();
   const { showToast } = useToast();
+  const alert = useAlert();
   const { categories: customCategories } = useCustomCategories();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -159,18 +160,13 @@ export default function DebtsModal() {
   const handleSave = async () => {
     const value = Number(amount);
     if (!amount || Number.isNaN(value) || value <= 0) {
-      Alert.alert('Error', 'Masukkan jumlah yang valid');
+      alert.error('Masukkan jumlah yang valid');
       return;
     }
     if (!counterparty.trim()) {
-      Alert.alert('Error', 'Masukkan nama pihak (orang/perusahaan)');
+      alert.error('Masukkan nama pihak (orang/perusahaan)');
       return;
     }
-    if (dueDate && !DATE_RE.test(dueDate.trim())) {
-      Alert.alert('Error', 'Format jatuh tempo harus YYYY-MM-DD');
-      return;
-    }
-
     setSaving(true);
     let error: string | null = null;
     const payload = {
@@ -188,7 +184,7 @@ export default function DebtsModal() {
       const existing = state.debts.find((d) => d.id === editId);
       if (!existing) {
         setSaving(false);
-        Alert.alert('Error', 'Data tidak ditemukan');
+        alert.error('Data tidak ditemukan');
         return;
       }
       error = await updateDebt({ ...existing, ...payload });
@@ -199,7 +195,7 @@ export default function DebtsModal() {
     setSaving(false);
 
     if (error) {
-      Alert.alert('Gagal menyimpan', error);
+      alert.error(error, 'Gagal menyimpan');
       return;
     }
 
@@ -209,22 +205,16 @@ export default function DebtsModal() {
   };
 
   const handleDelete = (d: Debt) => {
-    Alert.alert(
-      'Hapus hutang/tagihan?',
-      `"${d.counterparty}" beserta riwayat pembayarannya akan dihapus (termasuk transaksi yang dibuat otomatis).`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus',
-          style: 'destructive',
-          onPress: async () => {
-            const error = await deleteDebt(d.id);
-            if (error) showToast(error, 'error');
-            else showToast('Hutang/tagihan dihapus', 'info');
-          },
-        },
-      ]
-    );
+    alert.confirm({
+      title: 'Hapus hutang/tagihan?',
+      message: `"${d.counterparty}" beserta riwayat pembayarannya akan dihapus (termasuk transaksi yang dibuat otomatis).`,
+      confirmText: 'Hapus',
+      onConfirm: async () => {
+        const error = await deleteDebt(d.id);
+        if (error) showToast(error, 'error');
+        else showToast('Hutang/tagihan dihapus', 'info');
+      },
+    });
   };
 
   const openPay = (d: Debt) => {
@@ -237,7 +227,7 @@ export default function DebtsModal() {
     if (!payingId) return;
     const value = Number(payAmount);
     if (!payAmount || Number.isNaN(value) || value <= 0) {
-      Alert.alert('Error', 'Masukkan jumlah pembayaran yang valid');
+      alert.error('Masukkan jumlah pembayaran yang valid');
       return;
     }
 
@@ -246,7 +236,7 @@ export default function DebtsModal() {
     setPaying(false);
 
     if (error) {
-      Alert.alert('Gagal mencatat pembayaran', error);
+      alert.error(error, 'Gagal mencatat pembayaran');
       return;
     }
 
@@ -412,14 +402,11 @@ export default function DebtsModal() {
               })}
             </View>
 
-            <Text style={styles.label}>Jatuh tempo (opsional)</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.textMuted}
-              value={dueDate}
-              onChangeText={setDueDate}
-              autoCapitalize="none"
+            <DatePickerField
+              label="Jatuh tempo (opsional)"
+              value={dueDate || null}
+              onChange={(v) => setDueDate(v ?? '')}
+              placeholder="Pilih jatuh tempo"
             />
 
             <View style={styles.formActions}>

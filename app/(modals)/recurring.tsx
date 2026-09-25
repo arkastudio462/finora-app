@@ -8,7 +8,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -26,6 +25,7 @@ import { COLORS, CATEGORIES } from '@/constants/theme';
 import { formatRupiah, getPaymentMethodLabel } from '@/utils/format';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
   { key: 'cash', label: 'Tunai', icon: 'cash' },
@@ -33,6 +33,7 @@ const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
 ];
 
 const FREQUENCIES: { key: RecurringFrequency; label: string; icon: string }[] = [
+  { key: 'daily', label: 'Harian', icon: 'calendar-today' },
   { key: 'weekly', label: 'Mingguan', icon: 'calendar-refresh' },
   { key: 'monthly', label: 'Bulanan', icon: 'calendar-month' },
   { key: 'yearly', label: 'Tahunan', icon: 'calendar-star' },
@@ -85,6 +86,7 @@ export default function RecurringModal() {
   const { showToast } = useToast();
   const { categories: customCategories } = useCustomCategories();
   const router = useRouter();
+  const alert = useAlert();
   const insets = useSafeAreaInsets();
 
   const [showForm, setShowForm] = useState(false);
@@ -124,11 +126,11 @@ export default function RecurringModal() {
   const handleSave = async () => {
     const value = Number(amount);
     if (!amount || Number.isNaN(value) || value <= 0) {
-      Alert.alert('Error', 'Masukkan jumlah yang valid');
+      alert.error('Masukkan jumlah yang valid');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Error', 'Masukkan keterangan');
+      alert.error('Masukkan keterangan');
       return;
     }
 
@@ -139,7 +141,7 @@ export default function RecurringModal() {
       const existing = state.recurring.find((r) => r.id === editId);
       if (!existing) {
         setSaving(false);
-        Alert.alert('Error', 'Data tidak ditemukan');
+        alert.error('Data tidak ditemukan');
         return;
       }
       error = await updateRecurring({
@@ -168,7 +170,7 @@ export default function RecurringModal() {
     setSaving(false);
 
     if (error) {
-      Alert.alert('Gagal menyimpan', error);
+      alert.error(error, 'Gagal menyimpan');
       return;
     }
 
@@ -184,18 +186,16 @@ export default function RecurringModal() {
   };
 
   const handleDelete = (item: RecurringTransaction) => {
-    Alert.alert('Hapus transaksi berulang?', `"${item.description}" akan dihapus permanen.`, [
-      { text: 'Batal', style: 'cancel' },
-      {
-        text: 'Hapus',
-        style: 'destructive',
-        onPress: async () => {
-          const error = await deleteRecurring(item.id);
-          if (error) showToast(error, 'error');
-          else showToast('Transaksi berulang dihapus', 'info');
-        },
+    alert.confirm({
+      title: 'Hapus transaksi berulang?',
+      message: `"${item.description}" akan dihapus permanen.`,
+      confirmText: 'Hapus',
+      onConfirm: async () => {
+        const error = await deleteRecurring(item.id);
+        if (error) showToast(error, 'error');
+        else showToast('Transaksi berulang dihapus', 'info');
       },
-    ]);
+    });
   };
 
   return (
@@ -665,6 +665,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     paddingVertical: 12,
+    paddingHorizontal: 4,
     borderRadius: 14,
     backgroundColor: colors.background,
     borderWidth: 1,
@@ -678,7 +679,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     borderColor: colors.primary,
   },
   frequencyText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
   },

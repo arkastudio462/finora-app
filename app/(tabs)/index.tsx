@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Modal,
   Animated,
   PanResponder,
@@ -28,6 +27,7 @@ import AttachmentThumb from '@/components/AttachmentThumb';
 import { useTabBarPadding } from '@/hooks/useTabBarPadding';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 type Period = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
 
@@ -447,6 +447,7 @@ function RecentTransactions({ transactions }: { transactions: Transaction[] }) {
   const { deleteTransaction } = useFinance();
   const recent = transactions.slice(0, 5);
   const router = useRouter();
+  const alert = useAlert();
 
   const handleEdit = (transaction: Transaction) => {
     router.push({
@@ -466,10 +467,12 @@ function RecentTransactions({ transactions }: { transactions: Transaction[] }) {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Delete Transaction', 'This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteTransaction(id) },
-    ]);
+    alert.confirm({
+      title: 'Delete Transaction',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      onConfirm: () => deleteTransaction(id),
+    });
   };
 
   return (

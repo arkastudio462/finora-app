@@ -23,7 +23,7 @@ export interface Budget {
   amount: number;
 }
 
-export type RecurringFrequency = 'weekly' | 'monthly' | 'yearly';
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface RecurringTransaction {
   id: string;
@@ -320,6 +320,7 @@ function parseDateKey(key: string): Date {
 }
 
 function addFrequency(d: Date, frequency: RecurringFrequency): Date {
+  if (frequency === 'daily') return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
   if (frequency === 'weekly') return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7);
   if (frequency === 'yearly') return new Date(d.getFullYear() + 1, d.getMonth(), d.getDate());
   return new Date(d.getFullYear(), d.getMonth() + 1, d.getDate());

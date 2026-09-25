@@ -16,6 +16,7 @@ export interface AppNotification {
 }
 
 const FREQUENCY_LABEL: Record<RecurringFrequency, string> = {
+  daily: 'Harian',
   weekly: 'Mingguan',
   monthly: 'Bulanan',
   yearly: 'Tahunan',

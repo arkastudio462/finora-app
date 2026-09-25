@@ -8,7 +8,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -18,12 +17,14 @@ import { COLORS } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 export default function LoginScreen() {
   const colors = useColors();
   const styles = useStyles(createStyles);
   const { signIn, signInWithGoogle, signInWithGitHub } = useAuth();
   const router = useRouter();
+  const alert = useAlert();
   const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
@@ -33,7 +34,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+      alert.error('Please fill in all fields');
       return;
     }
 
@@ -42,21 +43,21 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Login Failed', error.message);
+      alert.error(error.message, 'Login Failed');
     }
   };
 
   const handleGoogleLogin = async () => {
     const { error } = await signInWithGoogle();
     if (error) {
-      Alert.alert('Login Failed', error.message);
+      alert.error(error.message, 'Login Failed');
     }
   };
 
   const handleGitHubLogin = async () => {
     const { error } = await signInWithGitHub();
     if (error) {
-      Alert.alert('Login Failed', error.message);
+      alert.error(error.message, 'Login Failed');
     }
   };
 

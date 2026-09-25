@@ -8,7 +8,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +17,7 @@ import { COLORS, BUDGET_CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 export default function AddBudgetModal() {
   const colors = useColors();
@@ -25,6 +25,7 @@ export default function AddBudgetModal() {
   const { addBudget, updateBudget, state } = useFinance();
   const { showToast } = useToast();
   const router = useRouter();
+  const alert = useAlert();
   const params = useLocalSearchParams<{
     editId?: string;
     category?: string;
@@ -49,7 +50,7 @@ export default function AddBudgetModal() {
 
   const handleSave = async () => {
     if (!amount || Number(amount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid budget limit');
+      alert.error('Please enter a valid budget limit');
       return;
     }
 
@@ -62,7 +63,7 @@ export default function AddBudgetModal() {
     } else {
       const error = await addBudget(category, Number(amount));
       if (error) {
-        Alert.alert('Error', error);
+        alert.error(error);
         return;
       }
     }

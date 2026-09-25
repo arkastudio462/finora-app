@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Animated,
   PanResponder,
 } from 'react-native';
@@ -21,6 +20,7 @@ import { useTabBarPadding } from '@/hooks/useTabBarPadding';
 import { LoadingBlock, ErrorBlock } from '@/components/DataState';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 function BudgetOverview() {
   const styles = useStyles(createStyles);
@@ -147,6 +147,7 @@ export default function BudgetScreen() {
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const alert = useAlert();
   const bottomPadding = useTabBarPadding();
 
   const handleEdit = (budget: { id: string; category: string; amount: number }) => {
@@ -161,17 +162,15 @@ export default function BudgetScreen() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Delete Budget?', 'This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteBudget(id);
-          showToast('Budget deleted', 'info');
-        },
+    alert.confirm({
+      title: 'Delete Budget?',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        await deleteBudget(id);
+        showToast('Budget deleted', 'info');
       },
-    ]);
+    });
   };
 
 

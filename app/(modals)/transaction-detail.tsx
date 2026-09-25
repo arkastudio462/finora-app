@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Image,
   ActivityIndicator,
 } from 'react-native';
@@ -22,6 +21,7 @@ import { RECEIPTS_BUCKET } from '@/lib/images';
 import ImagePreview from '@/components/ImagePreview';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 function DetailRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   const colors = useColors();
@@ -44,6 +44,7 @@ export default function TransactionDetailModal() {
   const { state, deleteTransaction } = useFinance();
   const { showToast } = useToast();
   const router = useRouter();
+  const alert = useAlert();
   const insets = useSafeAreaInsets();
   const [preview, setPreview] = useState(false);
 
@@ -96,18 +97,16 @@ export default function TransactionDetailModal() {
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete Transaction', 'This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteTransaction(tx.id);
-          showToast('Transaction deleted', 'success');
-          router.back();
-        },
+    alert.confirm({
+      title: 'Delete Transaction',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        await deleteTransaction(tx.id);
+        showToast('Transaction deleted', 'success');
+        router.back();
       },
-    ]);
+    });
   };
 
   return (

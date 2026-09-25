@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  Alert,
   Image,
   ActivityIndicator,
   Linking,
@@ -30,6 +29,7 @@ import { loadData, saveData, KEYS } from '@/utils/storage';
 import { useTabBarPadding } from '@/hooks/useTabBarPadding';
 import { useColors, useStyles, useTheme, ThemeMode } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -38,6 +38,7 @@ export default function ProfileScreen() {
   const { state } = useFinance();
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
+  const alert = useAlert();
   const insets = useSafeAreaInsets();
   const bottomPadding = useTabBarPadding();
 
@@ -119,19 +120,17 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          const { error } = await signOut();
-          if (error) {
-            showToast('Failed to sign out', 'error');
-          }
-        },
+    alert.confirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      confirmText: 'Sign Out',
+      onConfirm: async () => {
+        const { error } = await signOut();
+        if (error) {
+          showToast('Failed to sign out', 'error');
+        }
       },
-    ]);
+    });
   };
 
   const handleSupport = async () => {

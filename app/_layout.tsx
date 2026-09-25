@@ -8,6 +8,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { FinanceProvider } from '@/context/FinanceContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { ToastProvider } from '@/components/Toast';
+import { AppAlertProvider } from '@/components/AppAlert';
 import { useAuth } from '@/hooks/useAuth';
 import { isWelcomeSeen, loadWelcomeSeen } from '@/utils/welcome';
 
@@ -101,6 +102,7 @@ export default function RootLayout() {
     <ThemeProvider>
       <FinanceProvider>
         <ToastProvider>
+          <AppAlertProvider>
           <AuthGate>
             <Stack>
               <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
@@ -109,6 +111,7 @@ export default function RootLayout() {
               <Stack.Screen name="(modals)" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'fullScreenModal' }} />
             </Stack>
           </AuthGate>
+          </AppAlertProvider>
         </ToastProvider>
       </FinanceProvider>
     </ThemeProvider>

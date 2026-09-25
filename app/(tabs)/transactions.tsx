@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Animated,
   PanResponder,
   Modal,
@@ -26,6 +25,7 @@ import AttachmentThumb from '@/components/AttachmentThumb';
 import { LoadingBlock, ErrorBlock } from '@/components/DataState';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
+import { useAlert } from '@/components/AppAlert';
 
 const PAYMENT_FILTERS = [
   { key: 'all', label: 'Semua metode' },
@@ -190,6 +190,7 @@ export default function TransactionsScreen() {
   const { categories: customCategories } = useCustomCategories();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const alert = useAlert();
   const bottomPadding = useTabBarPadding();
 
   const [search, setSearch] = useState('');
@@ -302,17 +303,15 @@ export default function TransactionsScreen() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Delete Transaction', 'This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteTransaction(id);
-          showToast('Transaction deleted', 'info');
-        },
+    alert.confirm({
+      title: 'Delete Transaction',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        await deleteTransaction(id);
+        showToast('Transaction deleted', 'info');
       },
-    ]);
+    });
   };
 
   const resetFilter = () => {
