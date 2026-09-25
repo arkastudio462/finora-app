@@ -21,6 +21,8 @@ import PhotoPicker from '@/components/PhotoPicker';
 import { RECEIPTS_BUCKET, uploadImageFile, removeImageFile } from '@/lib/images';
 import { COLORS, CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
   { key: 'cash', label: 'Tunai', icon: 'cash' },
@@ -28,6 +30,8 @@ const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
 ];
 
 export default function AddTransactionModal() {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   const { addTransaction, updateTransaction, state } = useFinance();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -177,7 +181,7 @@ export default function AddTransactionModal() {
             <Text style={styles.title}>{isEdit ? `Edit ${type}` : `Add ${type}`}</Text>
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
-            <MaterialCommunityIcons name="close" size={22} color={COLORS.textPrimary} />
+            <MaterialCommunityIcons name="close" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -189,7 +193,7 @@ export default function AddTransactionModal() {
             <MaterialCommunityIcons
               name="arrow-up-right"
               size={18}
-              color={type === 'expense' ? COLORS.white : COLORS.textSecondary}
+              color={type === 'expense' ? colors.white : colors.textSecondary}
             />
             <Text style={[styles.typeBtnText, type === 'expense' && styles.typeBtnTextActive]}>Expense</Text>
           </TouchableOpacity>
@@ -200,7 +204,7 @@ export default function AddTransactionModal() {
             <MaterialCommunityIcons
               name="arrow-down-left"
               size={18}
-              color={type === 'income' ? COLORS.white : COLORS.textSecondary}
+              color={type === 'income' ? colors.white : colors.textSecondary}
             />
             <Text style={[styles.typeBtnText, type === 'income' && styles.typeBtnTextActive]}>Income</Text>
           </TouchableOpacity>
@@ -212,7 +216,7 @@ export default function AddTransactionModal() {
           <TextInput
             style={styles.amountField}
             placeholder="0"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
             value={amount}
             onChangeText={setAmount}
@@ -223,7 +227,7 @@ export default function AddTransactionModal() {
         <TextInput
           style={styles.textInput}
           placeholder="e.g. Groceries"
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={colors.textMuted}
           value={description}
           onChangeText={setDescription}
         />
@@ -242,7 +246,7 @@ export default function AddTransactionModal() {
               <MaterialCommunityIcons
                 name={category === cat ? 'check-circle' : 'circle-outline'}
                 size={14}
-                color={category === cat ? COLORS.white : COLORS.textMuted}
+                color={category === cat ? colors.white : colors.textMuted}
               />
               <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>
                 {cat}
@@ -256,7 +260,7 @@ export default function AddTransactionModal() {
             <MaterialCommunityIcons
               name={showNewCategory ? 'close' : 'plus'}
               size={14}
-              color={COLORS.primary}
+              color={colors.primary}
             />
             <Text style={[styles.categoryText, styles.addCategoryText]}>
               {showNewCategory ? 'Batal' : 'Kategori baru'}
@@ -269,7 +273,7 @@ export default function AddTransactionModal() {
             <TextInput
               style={styles.newCategoryInput}
               placeholder="Nama kategori custom"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={newCategory}
               onChangeText={(v) => setNewCategory(v.slice(0, MAX_CATEGORY_LENGTH + 10))}
               maxLength={MAX_CATEGORY_LENGTH + 10}
@@ -278,7 +282,7 @@ export default function AddTransactionModal() {
               onSubmitEditing={handleAddCategory}
             />
             <TouchableOpacity style={styles.newCategoryConfirm} onPress={handleAddCategory}>
-              <MaterialCommunityIcons name="check" size={18} color={COLORS.white} />
+              <MaterialCommunityIcons name="check" size={18} color={colors.white} />
             </TouchableOpacity>
           </View>
         )}
@@ -297,7 +301,7 @@ export default function AddTransactionModal() {
                 <MaterialCommunityIcons
                   name={m.icon as any}
                   size={16}
-                  color={active ? COLORS.white : COLORS.textSecondary}
+                  color={active ? colors.white : colors.textSecondary}
                 />
                 <Text style={[styles.paymentBtnText, active && styles.paymentBtnTextActive]}>
                   {m.label}
@@ -322,7 +326,7 @@ export default function AddTransactionModal() {
         />
 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
-          <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />
+          <MaterialCommunityIcons name="check" size={20} color={colors.white} />
           <Text style={styles.saveBtnText}>{isEdit ? 'Update transaction' : 'Save transaction'}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -330,10 +334,10 @@ export default function AddTransactionModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: 24,
@@ -349,23 +353,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.8,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   title: {
     fontSize: 25,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     marginTop: 4,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
 
   typeToggle: {
@@ -378,16 +382,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   typeBtnActive: {
-    backgroundColor: COLORS.cardDark,
-    borderColor: COLORS.cardDark,
+    backgroundColor: colors.cardDark,
+    borderColor: colors.cardDark,
   },
   typeBtnActiveIncome: {
     backgroundColor: '#16a34a',
@@ -396,32 +400,32 @@ const styles = StyleSheet.create({
   typeBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   typeBtnTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
 
   label: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   amountInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     paddingHorizontal: 16,
     marginBottom: 20,
   },
   amountPrefix: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   amountField: {
     flex: 1,
@@ -429,17 +433,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   textInput: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 13,
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 20,
   },
 
@@ -455,30 +459,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     gap: 6,
   },
   categoryChipActive: {
-    backgroundColor: COLORS.cardDark,
-    borderColor: COLORS.cardDark,
+    backgroundColor: colors.cardDark,
+    borderColor: colors.cardDark,
   },
   categoryText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   categoryTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
   addCategoryChip: {
     borderStyle: 'dashed',
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.cardLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.cardLight,
   },
   addCategoryText: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   newCategoryRow: {
     flexDirection: 'row',
@@ -489,20 +493,20 @@ const styles = StyleSheet.create({
   },
   newCategoryInput: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 13,
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   newCategoryConfirm: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -517,28 +521,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 13,
     borderRadius: 14,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   paymentBtnActive: {
-    backgroundColor: COLORS.cardDark,
-    borderColor: COLORS.cardDark,
+    backgroundColor: colors.cardDark,
+    borderColor: colors.cardDark,
   },
   paymentBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   paymentBtnTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
 
   saveBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 18,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -549,6 +553,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });

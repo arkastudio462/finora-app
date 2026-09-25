@@ -48,7 +48,8 @@
           "photosPermission": "Finora uses your photos to attach receipts to transactions and set your profile picture.",
           "cameraPermission": "Finora uses your camera to capture receipts and your profile picture."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

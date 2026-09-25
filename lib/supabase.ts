@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const ExpoSecureStoreAdapter = {
@@ -30,9 +31,18 @@ const ExpoSecureStoreAdapter = {
 const SUPABASE_URL = 'https://enhytaafzxytawfpoxpt.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuaHl0YWFmenh5dGF3ZnBveHB0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNjE0NzMsImV4cCI6MjEwNTgzNzQ3M30.JKPu3r2jkwWUS0hQH-FEeXxrTYaOVXDmyPZK3DxZiZc';
 
+const AsyncStorageAdapter = {
+  getItem: (key: string) => AsyncStorage.getItem(key),
+  setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
+  removeItem: (key: string) => AsyncStorage.removeItem(key),
+};
+
+const authStorage =
+  Platform.OS === 'web' ? AsyncStorageAdapter : (ExpoSecureStoreAdapter as typeof AsyncStorageAdapter);
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

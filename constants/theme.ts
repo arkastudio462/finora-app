@@ -1,4 +1,21 @@
-export const COLORS = {
+export interface Colors {
+  primary: string;
+  primaryDark: string;
+  primaryDarker: string;
+  background: string;
+  cardDark: string;
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  success: string;
+  danger: string;
+  border: string;
+  white: string;
+  cardLight: string;
+  surface: string;
+}
+
+export const COLORS: Colors = {
   primary: '#f97316',
   primaryDark: '#ea580c',
   primaryDarker: '#c2410c',
@@ -12,6 +29,24 @@ export const COLORS = {
   border: '#f3f4f6',
   white: '#ffffff',
   cardLight: '#fff7eb',
+  surface: '#ffffff',
+};
+
+export const DARK_COLORS: Colors = {
+  primary: '#fb923c',
+  primaryDark: '#f97316',
+  primaryDarker: '#ea580c',
+  background: '#0f1114',
+  cardDark: '#22262d',
+  textPrimary: '#f4f4f5',
+  textSecondary: '#a1a1aa',
+  textMuted: '#71717a',
+  success: '#4ade80',
+  danger: '#f87171',
+  border: '#262a30',
+  white: '#ffffff',
+  cardLight: '#2b2115',
+  surface: '#17191d',
 };
 
 export const TAB_BAR_HEIGHT = 72;

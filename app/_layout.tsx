@@ -2,12 +2,14 @@ import { useFonts } from 'expo-font';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { FinanceProvider } from '@/context/FinanceContext';
+import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { ToastProvider } from '@/components/Toast';
 import { useAuth } from '@/hooks/useAuth';
+import { isWelcomeSeen, loadWelcomeSeen } from '@/utils/welcome';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -19,30 +21,60 @@ SplashScreen.preventAutoHideAsync();
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
+  const { resolved, colors } = useTheme();
   const segments = useSegments();
   const router = useRouter();
+  const [welcomeReady, setWelcomeReady] = useState(false);
 
   useEffect(() => {
-    if (loading) return;
+    let alive = true;
+    loadWelcomeSeen()
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setWelcomeReady(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (loading || !welcomeReady) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inWelcome = segments[0] === 'welcome';
+
+    if (!isWelcomeSeen()) {
+      if (!inWelcome) router.replace('/welcome');
+      return;
+    }
+
+    if (inWelcome) {
+      router.replace(session ? '/(tabs)' : '/(auth)/login');
+      return;
+    }
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [session, loading, segments]);
+  }, [session, loading, segments, welcomeReady]);
 
-  if (loading) {
+  if (loading || !welcomeReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fafaf8' }}>
-        <ActivityIndicator size="large" color="#f97316" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
+      {children}
+    </>
+  );
 }
 
 export default function RootLayout() {
@@ -66,17 +98,19 @@ export default function RootLayout() {
   }
 
   return (
-    <FinanceProvider>
-      <ToastProvider>
-        <AuthGate>
-          <StatusBar style="dark" />
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
-            <Stack.Screen name="(modals)" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'fullScreenModal' }} />
-          </Stack>
-        </AuthGate>
-      </ToastProvider>
-    </FinanceProvider>
+    <ThemeProvider>
+      <FinanceProvider>
+        <ToastProvider>
+          <AuthGate>
+            <Stack>
+              <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
+              <Stack.Screen name="(modals)" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'fullScreenModal' }} />
+            </Stack>
+          </AuthGate>
+        </ToastProvider>
+      </FinanceProvider>
+    </ThemeProvider>
   );
 }

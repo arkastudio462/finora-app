@@ -3,6 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { COLORS } from '@/constants/theme';
 import { formatRupiah } from '@/utils/format';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 const CHART_COLORS = [
   '#f97316', '#fb923c', '#fdba74', '#ea580c', '#c2410c', '#fed7aa', '#ffedd5',
@@ -15,6 +17,7 @@ interface DonutChartProps {
 }
 
 export default function DonutChart({ data, size = 160, strokeWidth = 22 }: DonutChartProps) {
+  const styles = useStyles(createStyles);
   const categories = Object.keys(data);
   const values = Object.values(data);
   const total = values.reduce((a, b) => a + b, 0);
@@ -71,7 +74,7 @@ export default function DonutChart({ data, size = 160, strokeWidth = 22 }: Donut
 
 export { CHART_COLORS };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     alignItems: 'center',
   },
@@ -82,13 +85,13 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 10,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     marginBottom: 2,
   },
   totalAmount: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   emptyContainer: {
     justifyContent: 'center',
@@ -96,6 +99,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
 });

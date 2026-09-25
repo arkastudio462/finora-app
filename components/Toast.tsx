@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '@/constants/theme';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -30,6 +32,8 @@ const BG_COLORS: Record<ToastType, string> = {
 };
 
 function ToastItem({ toast, onDone }: { toast: ToastMessage; onDone: () => void }) {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-40)).current;
 
@@ -51,13 +55,14 @@ function ToastItem({ toast, onDone }: { toast: ToastMessage; onDone: () => void 
 
   return (
     <Animated.View style={[styles.toast, { opacity, transform: [{ translateY }], backgroundColor: BG_COLORS[toast.type] }]}>
-      <MaterialCommunityIcons name={ICONS[toast.type] as any} size={18} color={COLORS.white} />
+      <MaterialCommunityIcons name={ICONS[toast.type] as any} size={18} color={colors.white} />
       <Text style={styles.toastText}>{toast.message}</Text>
     </Animated.View>
   );
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const styles = useStyles(createStyles);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType = 'success') => {
@@ -89,7 +94,7 @@ export function useToast(): ToastContextType {
   return context;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     position: 'absolute',
     top: 60,
@@ -115,6 +120,6 @@ const styles = StyleSheet.create({
   toastText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });

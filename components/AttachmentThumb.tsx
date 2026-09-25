@@ -5,6 +5,8 @@ import { COLORS } from '@/constants/theme';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { RECEIPTS_BUCKET } from '@/lib/images';
 import ImagePreview from '@/components/ImagePreview';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 interface AttachmentThumbProps {
   path?: string | null;
@@ -17,6 +19,8 @@ export default function AttachmentThumb({
   bucket = RECEIPTS_BUCKET,
   size = 44,
 }: AttachmentThumbProps) {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   const url = useSignedImageUrl(bucket, path);
   const [preview, setPreview] = useState(false);
 
@@ -31,7 +35,7 @@ export default function AttachmentThumb({
       >
         <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
         <View style={styles.badge}>
-          <MaterialCommunityIcons name="image-outline" size={10} color={COLORS.white} />
+          <MaterialCommunityIcons name="image-outline" size={10} color={colors.white} />
         </View>
       </TouchableOpacity>
       <ImagePreview visible={preview} uri={url} onClose={() => setPreview(false)} />
@@ -39,12 +43,12 @@ export default function AttachmentThumb({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   thumb: {
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.border,
+    borderColor: colors.border,
+    backgroundColor: colors.border,
   },
   image: {
     width: '100%',

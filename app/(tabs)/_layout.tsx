@@ -4,6 +4,8 @@ import { Animated, Keyboard, Pressable, StyleSheet, Text, View } from 'react-nat
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { COLORS, TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '@/constants/theme';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -21,6 +23,8 @@ const LEFT_TABS = ['index', 'transactions'];
 const RIGHT_TABS = ['budget', 'profile'];
 
 function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   const router = useRouter();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const fabScale = useRef(new Animated.Value(1)).current;
@@ -67,7 +71,7 @@ function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBar
           <MaterialCommunityIcons
             name={focused ? icons.active : icons.inactive}
             size={24}
-            color={focused ? COLORS.primary : COLORS.textMuted}
+            color={focused ? colors.primary : colors.textMuted}
           />
         </View>
         <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
@@ -114,7 +118,7 @@ function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBar
             onPress={() => router.push('/(modals)/add-transaction')}
             style={styles.fab}
           >
-            <MaterialCommunityIcons name="plus" size={32} color={COLORS.white} />
+            <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
           </Pressable>
         </View>
       </Animated.View>
@@ -123,8 +127,17 @@ function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBar
 }
 
 export default function TabLayout() {
+  const colors = useColors();
+
   return (
-    <Tabs tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false, animation: 'shift' }}>
+    <Tabs
+      tabBar={(props) => <FloatingTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        animation: 'shift',
+        sceneStyle: { backgroundColor: colors.background },
+      }}
+    >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
       <Tabs.Screen name="transactions" options={{ title: 'Trans' }} />
       <Tabs.Screen name="budget" options={{ title: 'Budget' }} />
@@ -133,19 +146,20 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     overflow: 'visible',
+    backgroundColor: colors.background,
   },
   bar: {
     flexDirection: 'row',
     alignItems: 'stretch',
     marginHorizontal: 16,
     paddingHorizontal: 6,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     elevation: 8,
     shadowColor: '#17191c',
     shadowOffset: { width: 0, height: 8 },
@@ -174,17 +188,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.1,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     marginTop: 3,
   },
   tabLabelActive: {
-    color: COLORS.primary,
+    color: colors.primary,
   },
   activeDot: {
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     marginTop: 3,
   },
   fabContainer: {
@@ -198,10 +212,10 @@ const styles = StyleSheet.create({
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderWidth: 6,
-    borderColor: COLORS.background,
-    shadowColor: COLORS.primary,
+    borderColor: colors.background,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 14,

@@ -18,8 +18,12 @@ import { getCategoryIcon } from '@/utils/icons';
 import { COLORS } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarPadding } from '@/hooks/useTabBarPadding';
+import { LoadingBlock, ErrorBlock } from '@/components/DataState';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 function BudgetOverview() {
+  const styles = useStyles(createStyles);
   const { state, getBudgetSpent } = useFinance();
   const totalBudget = state.budgets.reduce((sum, b) => sum + b.amount, 0);
   const totalSpent = state.budgets.reduce((sum, b) => sum + getBudgetSpent(b.category), 0);
@@ -33,8 +37,8 @@ function BudgetOverview() {
         <View style={[styles.progressFill, { width: `${pct}%` }]} />
       </View>
       <View style={styles.overviewFooter}>
-        <Text style={styles.overviewStatus}>{Math.round(pct)}% used</Text>
-        <Text style={styles.overviewSpent}>{formatRupiah(totalSpent)} spent</Text>
+        <Text style={styles.overviewStatus}>{Math.round(pct)}% used this month</Text>
+        <Text style={styles.overviewSpent}>{formatRupiah(totalSpent)} spent this month</Text>
       </View>
     </View>
   );
@@ -47,6 +51,8 @@ function SwipeableBudgetItem({ budget, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   const { getBudgetSpent } = useFinance();
   const translateX = useRef(new Animated.Value(0)).current;
   const lastOffset = useRef(0);
@@ -86,10 +92,10 @@ function SwipeableBudgetItem({ budget, onEdit, onDelete }: {
     <View style={styles.swipeContainer}>
       <View style={styles.swipeActions}>
         <TouchableOpacity style={styles.swipeEditBtn} onPress={onEdit}>
-          <MaterialCommunityIcons name="pencil" size={18} color={COLORS.white} />
+          <MaterialCommunityIcons name="pencil" size={18} color={colors.white} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.swipeDeleteBtn} onPress={onDelete}>
-          <MaterialCommunityIcons name="delete" size={18} color={COLORS.white} />
+          <MaterialCommunityIcons name="delete" size={18} color={colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -100,7 +106,7 @@ function SwipeableBudgetItem({ budget, onEdit, onDelete }: {
         <View style={styles.budgetItemHeader}>
           <View style={styles.budgetItemLeft}>
             <View style={styles.budgetItemIcon}>
-              <MaterialCommunityIcons name={icon as any} size={16} color={COLORS.primaryDark} />
+              <MaterialCommunityIcons name={icon as any} size={16} color={colors.primaryDark} />
             </View>
             <View>
               <Text style={styles.budgetItemCategory}>{budget.category}</Text>
@@ -115,14 +121,14 @@ function SwipeableBudgetItem({ budget, onEdit, onDelete }: {
               styles.budgetProgressFill,
               {
                 width: `${pct}%`,
-                backgroundColor: isOver ? COLORS.danger : pct > 75 ? '#f59e0b' : COLORS.primary,
+                backgroundColor: isOver ? colors.danger : pct > 75 ? '#f59e0b' : colors.primary,
               },
             ]}
           />
         </View>
 
         <View style={styles.budgetItemFooter}>
-          <Text style={[styles.budgetSpent, isOver && { color: COLORS.danger, fontWeight: '700' }]}>
+          <Text style={[styles.budgetSpent, isOver && { color: colors.danger, fontWeight: '700' }]}>
             {formatRupiah(spent)} used
           </Text>
           <Text style={styles.budgetRemaining}>
@@ -135,7 +141,9 @@ function SwipeableBudgetItem({ budget, onEdit, onDelete }: {
 }
 
 export default function BudgetScreen() {
-  const { state, deleteBudget } = useFinance();
+  const colors = useColors();
+  const styles = useStyles(createStyles);
+  const { state, deleteBudget, reload } = useFinance();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -166,6 +174,33 @@ export default function BudgetScreen() {
     ]);
   };
 
+
+  if (state.loadError) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { paddingTop: insets.top + 16, alignItems: 'center', justifyContent: 'center' },
+        ]}
+      >
+        <ErrorBlock message={state.loadError} onRetry={() => reload()} />
+      </View>
+    );
+  }
+
+  if (!state.isLoaded) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { paddingTop: insets.top + 16, alignItems: 'center', justifyContent: 'center' },
+        ]}
+      >
+        <LoadingBlock />
+      </View>
+    );
+  }
+
   return (
       <ScrollView style={[styles.container, { paddingTop: insets.top + 16 }]} contentContainerStyle={{ paddingBottom: bottomPadding }} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -174,7 +209,7 @@ export default function BudgetScreen() {
           <Text style={styles.headerCount}>{state.budgets.length} budget{state.budgets.length !== 1 ? 's' : ''} set</Text>
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/(modals)/add-budget')}>
-          <MaterialCommunityIcons name="plus" size={18} color={COLORS.white} />
+          <MaterialCommunityIcons name="plus" size={18} color={colors.white} />
           <Text style={styles.addBtnText}>Add budget</Text>
         </TouchableOpacity>
       </View>
@@ -184,7 +219,7 @@ export default function BudgetScreen() {
       {state.budgets.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
-            <MaterialCommunityIcons name="wallet" size={28} color={COLORS.primary} />
+            <MaterialCommunityIcons name="wallet" size={28} color={colors.primary} />
           </View>
           <Text style={styles.emptyTitle}>No budget set</Text>
           <Text style={styles.emptyDesc}>Add a budget to track your spending limits.</Text>
@@ -208,10 +243,10 @@ export default function BudgetScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     paddingHorizontal: 20,
   },
   header: {
@@ -223,18 +258,18 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   headerCount: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
@@ -242,23 +277,23 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 
   overviewCard: {
-    backgroundColor: COLORS.cardDark,
+    backgroundColor: colors.cardDark,
     borderRadius: 25,
     padding: 20,
     marginBottom: 20,
   },
   overviewLabel: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   overviewAmount: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.white,
+    color: colors.white,
     marginTop: 4,
   },
   progressBar: {
@@ -270,7 +305,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 4,
   },
   overviewFooter: {
@@ -280,11 +315,11 @@ const styles = StyleSheet.create({
   },
   overviewStatus: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   overviewSpent: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
 
   budgetList: {
@@ -308,7 +343,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -316,17 +351,17 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   budgetItem: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderRadius: 21,
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     zIndex: 1,
   },
   budgetItemHeader: {
@@ -351,11 +386,11 @@ const styles = StyleSheet.create({
   budgetItemCategory: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   budgetItemLimit: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   budgetItemActions: {
@@ -371,7 +406,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   budgetProgressBar: {
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.border,
     borderRadius: 4,
     height: 8,
     overflow: 'hidden',
@@ -387,11 +422,11 @@ const styles = StyleSheet.create({
   },
   budgetSpent: {
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   budgetRemaining: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
 
   emptyContainer: {
@@ -410,16 +445,16 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   emptyDesc: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     marginTop: 4,
   },
   emptyBtn: {
     marginTop: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -427,6 +462,6 @@ const styles = StyleSheet.create({
   emptyBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });

@@ -16,8 +16,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/useAuth';
 import { COLORS } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 export default function LoginScreen() {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   const { signIn, signInWithGoogle, signInWithGitHub } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -67,7 +71,7 @@ export default function LoginScreen() {
       >
         <View style={styles.logoContainer}>
           <View style={styles.logo}>
-            <MaterialCommunityIcons name="wallet" size={36} color={COLORS.white} />
+            <MaterialCommunityIcons name="wallet" size={36} color={colors.white} />
           </View>
           <Text style={styles.appName}>Finora</Text>
           <Text style={styles.tagline}>Personal Finance Tracker</Text>
@@ -79,11 +83,11 @@ export default function LoginScreen() {
 
           <Text style={styles.label}>Email</Text>
           <View style={styles.inputContainer}>
-            <MaterialCommunityIcons name="email-outline" size={18} color={COLORS.textMuted} />
+            <MaterialCommunityIcons name="email-outline" size={18} color={colors.textMuted} />
             <TextInput
               style={styles.input}
               placeholder="your@email.com"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -94,11 +98,11 @@ export default function LoginScreen() {
 
           <Text style={styles.label}>Password</Text>
           <View style={styles.inputContainer}>
-            <MaterialCommunityIcons name="lock-outline" size={18} color={COLORS.textMuted} />
+            <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} />
             <TextInput
               style={styles.input}
               placeholder="Enter your password"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
@@ -107,14 +111,14 @@ export default function LoginScreen() {
               <MaterialCommunityIcons
                 name={showPassword ? 'eye-off' : 'eye'}
                 size={18}
-                color={COLORS.textMuted}
+                color={colors.textMuted}
               />
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={loading}>
             {loading ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <Text style={styles.loginBtnText}>Sign In</Text>
             )}
@@ -132,7 +136,7 @@ export default function LoginScreen() {
               <Text style={styles.socialBtnText}>Google</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.socialBtn} onPress={handleGitHubLogin}>
-              <MaterialCommunityIcons name="github" size={20} color={COLORS.textPrimary} />
+              <MaterialCommunityIcons name="github" size={20} color={colors.textPrimary} />
               <Text style={styles.socialBtnText}>GitHub</Text>
             </TouchableOpacity>
           </View>
@@ -148,10 +152,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: 24,
@@ -165,7 +169,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -173,29 +177,29 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 28,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   tagline: {
     fontSize: 13,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     marginTop: 4,
   },
 
   formCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   formTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   formSubtitle: {
     fontSize: 13,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     marginTop: 4,
     marginBottom: 24,
   },
@@ -203,16 +207,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     paddingHorizontal: 14,
     marginBottom: 16,
     gap: 10,
@@ -221,11 +225,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     fontSize: 13,
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
 
   loginBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
@@ -234,7 +238,7 @@ const styles = StyleSheet.create({
   loginBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 
   divider: {
@@ -246,11 +250,11 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.border,
   },
   dividerText: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
 
   socialButtons: {
@@ -265,14 +269,14 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   socialBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
 
   registerLink: {
@@ -281,10 +285,10 @@ const styles = StyleSheet.create({
   },
   registerText: {
     fontSize: 13,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   registerBold: {
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
 });

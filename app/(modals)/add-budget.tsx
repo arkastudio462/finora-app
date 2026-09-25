@@ -16,8 +16,12 @@ import { useFinance } from '@/context/FinanceContext';
 import { useToast } from '@/components/Toast';
 import { COLORS, BUDGET_CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 export default function AddBudgetModal() {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   const { addBudget, updateBudget, state } = useFinance();
   const { showToast } = useToast();
   const router = useRouter();
@@ -79,7 +83,7 @@ export default function AddBudgetModal() {
             <Text style={styles.title}>{isEdit ? 'Edit budget' : 'Add budget'}</Text>
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
-            <MaterialCommunityIcons name="close" size={22} color={COLORS.textPrimary} />
+            <MaterialCommunityIcons name="close" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -95,7 +99,7 @@ export default function AddBudgetModal() {
               <MaterialCommunityIcons
                 name={category === cat ? 'check-circle' : 'circle-outline'}
                 size={14}
-                color={category === cat ? COLORS.white : COLORS.textMuted}
+                color={category === cat ? colors.white : colors.textMuted}
               />
               <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>
                 {cat}
@@ -110,7 +114,7 @@ export default function AddBudgetModal() {
           <TextInput
             style={styles.amountField}
             placeholder="0"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
             value={amount}
             onChangeText={setAmount}
@@ -118,7 +122,7 @@ export default function AddBudgetModal() {
         </View>
 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
-          <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />
+          <MaterialCommunityIcons name="check" size={20} color={colors.white} />
           <Text style={styles.saveBtnText}>{isEdit ? 'Update budget' : 'Save budget'}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -126,10 +130,10 @@ export default function AddBudgetModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: 24,
@@ -145,29 +149,29 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.8,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   title: {
     fontSize: 25,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     marginTop: 4,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
 
   label: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   categoryGrid: {
@@ -182,14 +186,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     gap: 6,
   },
   categoryChipActive: {
-    backgroundColor: COLORS.cardDark,
-    borderColor: COLORS.cardDark,
+    backgroundColor: colors.cardDark,
+    borderColor: colors.cardDark,
   },
   categoryChipDisabled: {
     opacity: 0.6,
@@ -197,26 +201,26 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   categoryTextActive: {
-    color: COLORS.white,
+    color: colors.white,
   },
 
   amountInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     paddingHorizontal: 16,
     marginBottom: 24,
   },
   amountPrefix: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
   amountField: {
     flex: 1,
@@ -224,11 +228,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
 
   saveBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 18,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -239,6 +243,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: colors.white,
   },
 });

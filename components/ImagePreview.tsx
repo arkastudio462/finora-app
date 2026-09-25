@@ -2,6 +2,8 @@ import React from 'react';
 import { Modal, View, Image, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '@/constants/theme';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 interface ImagePreviewProps {
   visible: boolean;
@@ -10,12 +12,14 @@ interface ImagePreviewProps {
 }
 
 export default function ImagePreview({ visible, uri, onClose }: ImagePreviewProps) {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   return (
     <Modal visible={visible && !!uri} transparent animationType="fade" onRequestClose={onClose}>
       <StatusBar barStyle="light-content" />
       <View style={styles.backdrop}>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
-          <MaterialCommunityIcons name="close" size={22} color={COLORS.white} />
+          <MaterialCommunityIcons name="close" size={22} color={colors.white} />
         </TouchableOpacity>
         {uri ? <Image source={{ uri }} style={styles.image} resizeMode="contain" /> : null}
       </View>
@@ -23,7 +27,7 @@ export default function ImagePreview({ visible, uri, onClose }: ImagePreviewProp
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.92)',

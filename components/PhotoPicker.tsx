@@ -3,6 +3,8 @@ import { View, Image, TouchableOpacity, Text, StyleSheet, ActivityIndicator } fr
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '@/constants/theme';
 import { pickImage } from '@/lib/images';
+import { useColors, useStyles } from '@/context/ThemeContext';
+import type { Colors } from '@/constants/theme';
 
 interface PhotoPickerProps {
   uri?: string | null;
@@ -12,6 +14,8 @@ interface PhotoPickerProps {
 }
 
 export default function PhotoPicker({ uri, onPick, onRemove, onError }: PhotoPickerProps) {
+  const colors = useColors();
+  const styles = useStyles(createStyles);
   const [busy, setBusy] = useState(false);
 
   const handlePick = async (source: 'library' | 'camera') => {
@@ -35,12 +39,12 @@ export default function PhotoPicker({ uri, onPick, onRemove, onError }: PhotoPic
         <Image source={{ uri }} style={styles.preview} resizeMode="cover" />
         <View style={styles.previewActions}>
           <TouchableOpacity style={styles.changeBtn} onPress={() => handlePick('library')}>
-            <MaterialCommunityIcons name="image-outline" size={14} color={COLORS.textSecondary} />
+            <MaterialCommunityIcons name="image-outline" size={14} color={colors.textSecondary} />
             <Text style={styles.changeText}>Ganti</Text>
           </TouchableOpacity>
           {onRemove && (
             <TouchableOpacity style={styles.removeBtn} onPress={onRemove}>
-              <MaterialCommunityIcons name="trash-can-outline" size={14} color={COLORS.danger} />
+              <MaterialCommunityIcons name="trash-can-outline" size={14} color={colors.danger} />
               <Text style={styles.removeText}>Hapus</Text>
             </TouchableOpacity>
           )}
@@ -53,21 +57,21 @@ export default function PhotoPicker({ uri, onPick, onRemove, onError }: PhotoPic
     <View style={styles.emptyRow}>
       <TouchableOpacity style={styles.pickBtn} onPress={() => handlePick('camera')} disabled={busy}>
         {busy ? (
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         ) : (
-          <MaterialCommunityIcons name="camera-outline" size={16} color={COLORS.primary} />
+          <MaterialCommunityIcons name="camera-outline" size={16} color={colors.primary} />
         )}
         <Text style={styles.pickText}>Kamera</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.pickBtn} onPress={() => handlePick('library')} disabled={busy}>
-        <MaterialCommunityIcons name="image-outline" size={16} color={COLORS.primary} />
+        <MaterialCommunityIcons name="image-outline" size={16} color={colors.primary} />
         <Text style={styles.pickText}>Galeri</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   emptyRow: {
     flexDirection: 'row',
     gap: 8,
@@ -83,13 +87,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.cardLight,
+    borderColor: colors.primary,
+    backgroundColor: colors.cardLight,
   },
   pickText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: colors.primary,
   },
   previewRow: {
     flexDirection: 'row',
@@ -102,8 +106,8 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.border,
+    borderColor: colors.border,
+    backgroundColor: colors.border,
   },
   previewActions: {
     flexDirection: 'row',
@@ -117,13 +121,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   changeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   removeBtn: {
     flexDirection: 'row',
@@ -139,6 +143,6 @@ const styles = StyleSheet.create({
   removeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.danger,
+    color: colors.danger,
   },
 });
