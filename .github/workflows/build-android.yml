@@ -76,6 +76,10 @@ jobs:
             if grep -q "^${key}=" "$PROPS"; then
               sed -i "s|^${key}=.*|${key}=${value}|" "$PROPS"
             else
+              # Template Expo tidak mengakhiri file dengan newline
+              if [ -s "$PROPS" ] && [ -n "$(tail -c 1 "$PROPS")" ]; then
+                printf '\n' >> "$PROPS"
+              fi
               printf '%s=%s\n' "$key" "$value" >> "$PROPS"
             fi
           }
