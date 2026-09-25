@@ -15,6 +15,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFinance, PaymentMethod } from '@/context/FinanceContext';
 import { useToast } from '@/components/Toast';
 import { useCustomCategories, MAX_CATEGORY_LENGTH } from '@/hooks/useCustomCategories';
+import { useAuth } from '@/hooks/useAuth';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import PhotoPicker from '@/components/PhotoPicker';
+import { RECEIPTS_BUCKET, uploadImageFile, removeImageFile } from '@/lib/images';
 import { COLORS, CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +29,7 @@ const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
 
 export default function AddTransactionModal() {
   const { addTransaction, updateTransaction, state } = useFinance();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const { categories: customCategories, addCategory } = useCustomCategories();
   const router = useRouter();
@@ -46,6 +51,9 @@ export default function AddTransactionModal() {
   const [description, setDescription] = useState(params.description || '');
   const [category, setCategory] = useState(params.category || CATEGORIES[0]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imageRemoved, setImageRemoved] = useState(false);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategory, setNewCategory] = useState('');
 
@@ -58,9 +66,18 @@ export default function AddTransactionModal() {
         setDescription(tx.description);
         setCategory(tx.category);
         setPaymentMethod(tx.payment_method === 'non_cash' ? 'non_cash' : 'cash');
+        setImagePath(tx.image_path ?? null);
+        setPhotoUri(null);
+        setImageRemoved(false);
       }
     }
   }, [params.editId]);
+
+  const savedPhotoUrl = useSignedImageUrl(
+    RECEIPTS_BUCKET,
+    imagePath && !photoUri && !imageRemoved ? imagePath : null
+  );
+  const previewPhotoUri = photoUri || savedPhotoUrl;
 
   const categoryOptions = Array.from(
     new Set([...CATEGORIES, ...customCategories, ...(category ? [category] : [])])
@@ -91,6 +108,22 @@ export default function AddTransactionModal() {
     const known = CATEGORIES.some((c) => c === category) || customCategories.includes(category);
     if (!known) await addCategory(category);
 
+    let finalImagePath = imageRemoved ? null : imagePath;
+
+    if (photoUri) {
+      if (!user) {
+        Alert.alert('Error', 'Anda belum login');
+        return;
+      }
+      showToast('Mengupload foto...', 'info');
+      const uploaded = await uploadImageFile(RECEIPTS_BUCKET, photoUri, user.id);
+      if ('error' in uploaded) {
+        Alert.alert('Gagal upload foto', uploaded.error);
+        return;
+      }
+      finalImagePath = uploaded.path;
+    }
+
     let error: string | null = null;
 
     if (isEdit && params.editId) {
@@ -106,6 +139,7 @@ export default function AddTransactionModal() {
         category,
         amount: Number(amount),
         payment_method: paymentMethod,
+        image_path: finalImagePath,
       });
     } else {
       error = await addTransaction({
@@ -114,12 +148,17 @@ export default function AddTransactionModal() {
         category,
         amount: Number(amount),
         payment_method: paymentMethod,
+        image_path: finalImagePath,
       });
     }
 
     if (error) {
       Alert.alert('Gagal menyimpan', error);
       return;
+    }
+
+    if (imagePath && finalImagePath !== imagePath) {
+      removeImageFile(RECEIPTS_BUCKET, imagePath);
     }
 
     showToast(isEdit ? 'Transaction updated' : 'Transaction added', 'success');
@@ -267,6 +306,20 @@ export default function AddTransactionModal() {
             );
           })}
         </View>
+
+        <Text style={styles.label}>Photo (optional)</Text>
+        <PhotoPicker
+          uri={previewPhotoUri}
+          onPick={(uri) => {
+            setPhotoUri(uri);
+            setImageRemoved(false);
+          }}
+          onRemove={() => {
+            setPhotoUri(null);
+            setImageRemoved(true);
+          }}
+          onError={(message) => Alert.alert('Foto', message)}
+        />
 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
           <MaterialCommunityIcons name="check" size={20} color={COLORS.white} />

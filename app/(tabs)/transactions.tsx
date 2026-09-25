@@ -20,6 +20,7 @@ import { getCategoryIcon } from '@/utils/icons';
 import { COLORS, CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarPadding } from '@/hooks/useTabBarPadding';
+import AttachmentThumb from '@/components/AttachmentThumb';
 
 const FILTER_CHIPS = ['All', 'Income', 'Expense', ...CATEGORIES.slice(0, 5)] as const;
 const SWIPE_THRESHOLD = -80;
@@ -83,6 +84,11 @@ function SwipeableTransactionItem({ transaction, onEdit, onDelete }: {
           <Text style={styles.transactionDesc}>{transaction.description}</Text>
           <Text style={styles.transactionMeta}>{transaction.category} · {getPaymentMethodLabel(transaction.payment_method)} · {formatDate(transaction.date)}</Text>
         </View>
+        {transaction.image_path ? (
+          <View style={styles.transactionThumb}>
+            <AttachmentThumb path={transaction.image_path} />
+          </View>
+        ) : null}
         <View style={styles.transactionRight}>
           <Text style={[styles.transactionAmount, { color }]}>{sign} {formatRupiah(transaction.amount)}</Text>
         </View>
@@ -349,6 +355,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textMuted,
     marginTop: 4,
+  },
+  transactionThumb: {
+    marginLeft: 8,
   },
   transactionRight: {
     alignItems: 'flex-end',

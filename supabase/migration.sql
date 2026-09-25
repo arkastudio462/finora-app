@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   category text NOT NULL,
   amount numeric NOT NULL,
   payment_method text NOT NULL DEFAULT 'cash' CHECK (payment_method IN ('cash', 'non_cash')),
+  image_path text,
   date timestamptz DEFAULT now() NOT NULL,
   created_at timestamptz DEFAULT now() NOT NULL
 );
@@ -68,10 +69,43 @@ CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
 
 -- ============================================
+-- 5b. Storage: bucket lampiran & avatar
+-- ============================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('receipts', 'receipts', false, 10485760,
+        ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/heic'])
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('avatars', 'avatars', true, 5242880,
+        ARRAY['image/jpeg', 'image/png', 'image/webp'])
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "receipts select own" ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'receipts' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "receipts insert own" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'receipts' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "receipts update own" ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'receipts' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "receipts delete own" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'receipts' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "avatars public read" ON storage.objects FOR SELECT
+  USING (bucket_id = 'avatars');
+CREATE POLICY "avatars insert own" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "avatars update own" ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "avatars delete own" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================
 -- 6. UPGRADE (jalankan HANYA bagian ini untuk database yang sudah ada)
 -- ============================================
 ALTER TABLE transactions
   ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'cash';
+
+ALTER TABLE transactions
+  ADD COLUMN IF NOT EXISTS image_path text;
 
 DO $$
 BEGIN

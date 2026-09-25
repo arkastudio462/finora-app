@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { loadData, KEYS } from '@/utils/storage';
 import DonutChart, { CHART_COLORS } from '@/components/DonutChart';
 import AnimatedEntrance from '@/components/AnimatedEntrance';
+import AttachmentThumb from '@/components/AttachmentThumb';
 import { useTabBarPadding } from '@/hooks/useTabBarPadding';
 
 type Period = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
@@ -395,6 +396,11 @@ function SwipeableTransactionItem({ transaction, onEdit, onDelete }: {
           <Text style={styles.transactionDesc}>{transaction.description}</Text>
           <Text style={styles.transactionMeta}>{transaction.category} · {getPaymentMethodLabel(transaction.payment_method)} · {formatDate(transaction.date)}</Text>
         </View>
+        {transaction.image_path ? (
+          <View style={styles.transactionThumb}>
+            <AttachmentThumb path={transaction.image_path} />
+          </View>
+        ) : null}
         <View style={styles.transactionRight}>
           <Text style={[styles.transactionAmount, { color }]}>{sign} {formatRupiah(transaction.amount)}</Text>
         </View>
@@ -918,6 +924,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.danger,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  transactionThumb: {
+    marginLeft: 8,
   },
   transactionRight: {
     alignItems: 'flex-end',

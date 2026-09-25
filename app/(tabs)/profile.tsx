@@ -7,10 +7,14 @@ import {
   TextInput,
   StyleSheet,
   Alert,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFinance } from '@/context/FinanceContext';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import { pickImage, uploadImageFile, AVATARS_BUCKET } from '@/lib/images';
 import { useToast } from '@/components/Toast';
 import { formatRupiah } from '@/utils/format';
 import { COLORS } from '@/constants/theme';
@@ -29,6 +33,56 @@ export default function ProfileScreen() {
   const [userName, setUserName] = useState(defaultName);
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(userName);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    user?.user_metadata?.avatar_url || null
+  );
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  useEffect(() => {
+    if (user?.user_metadata?.avatar_url) {
+      setAvatarUrl(user.user_metadata.avatar_url);
+    }
+  }, [user?.id]);
+
+  const handleChangeAvatar = async () => {
+    if (uploadingAvatar) return;
+    if (!user) {
+      showToast('Anda belum login', 'error');
+      return;
+    }
+
+    const picked = await pickImage('library');
+    if (picked.error) {
+      showToast(picked.error, 'error');
+      return;
+    }
+    if (!picked.uri) return;
+
+    setUploadingAvatar(true);
+    try {
+      const uploaded = await uploadImageFile(AVATARS_BUCKET, picked.uri, user.id, 'avatar');
+      if ('error' in uploaded) {
+        showToast(`Gagal upload: ${uploaded.error}`, 'error');
+        return;
+      }
+
+      const { data } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(uploaded.path);
+      const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
+
+      const { error } = await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl },
+      });
+      if (error) {
+        showToast(`Gagal menyimpan avatar: ${error.message}`, 'error');
+        return;
+      }
+
+      setAvatarUrl(publicUrl);
+      showToast('Foto profil diperbarui', 'success');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -84,9 +138,25 @@ export default function ProfileScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.profileHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.avatar}
+          activeOpacity={0.85}
+          onPress={handleChangeAvatar}
+          disabled={uploadingAvatar}
+        >
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+          ) : (
+            <Text style={styles.avatarText}>{(userName || '?').charAt(0).toUpperCase()}</Text>
+          )}
+          <View style={styles.avatarBadge}>
+            {uploadingAvatar ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <MaterialCommunityIcons name="camera-plus" size={14} color={COLORS.white} />
+            )}
+          </View>
+        </TouchableOpacity>
 
         {isEditing ? (
           <View style={styles.editNameRow}>
@@ -183,6 +253,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  avatarBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    borderWidth: 2,
+    borderColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   avatarText: {
     fontSize: 32,

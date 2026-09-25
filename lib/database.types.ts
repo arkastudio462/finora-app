@@ -12,6 +12,7 @@ export interface Database {
           category: string;
           amount: number;
           payment_method: 'cash' | 'non_cash';
+          image_path: string | null;
           date: string;
           created_at: string;
         };
@@ -23,6 +24,7 @@ export interface Database {
           category: string;
           amount: number;
           payment_method?: 'cash' | 'non_cash';
+          image_path?: string | null;
           date?: string;
           created_at?: string;
         };
@@ -34,6 +36,7 @@ export interface Database {
           category?: string;
           amount?: number;
           payment_method?: 'cash' | 'non_cash';
+          image_path?: string | null;
           date?: string;
           created_at?: string;
         };

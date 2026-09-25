@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import { RECEIPTS_BUCKET, removeImageFile } from '@/lib/images';
 import { useAuth } from '@/hooks/useAuth';
 
 export type PaymentMethod = 'cash' | 'non_cash';
@@ -11,6 +12,7 @@ export interface Transaction {
   category: string;
   amount: number;
   payment_method: PaymentMethod;
+  image_path: string | null;
   date: string;
 }
 
@@ -114,10 +116,17 @@ function financeReducer(state: FinanceState, action: FinanceAction): FinanceStat
 function getWriteErrorMessage(error: { code?: string; message?: string }): string {
   const code = error.code || '';
   const message = error.message || '';
-  if (code === '42703' || code === 'PGRST204' || message.includes('payment_method')) {
+
+  if (message.includes('image_path')) {
+    return 'Kolom image_path belum ada di database. Jalankan supabase/upgrade_images.sql di Supabase SQL Editor, lalu coba lagi.';
+  }
+  if (message.includes('payment_method')) {
     return 'Kolom payment_method belum ada di database. Jalankan supabase/upgrade_payment_method.sql di Supabase SQL Editor, lalu coba lagi.';
   }
-  if (code === '42P01' || message.includes('relation') && message.includes('does not exist')) {
+  if (code === '42703' || code === 'PGRST204') {
+    return `Kolom tidak ditemukan di database (${message}). Jalankan file SQL upgrade terbaru di Supabase SQL Editor.`;
+  }
+  if (code === '42P01' || (message.includes('relation') && message.includes('does not exist'))) {
     return 'Tabel belum dibuat. Jalankan supabase/migration.sql di Supabase SQL Editor.';
   }
   if (code === 'PGRST301' || code === '42501') {
@@ -175,6 +184,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       category: t.category,
       amount: t.amount,
       payment_method: t.payment_method === 'non_cash' ? 'non_cash' : 'cash',
+      image_path: t.image_path ?? null,
       date: t.date,
     }));
 
@@ -210,6 +220,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         category: t.category,
         amount: t.amount,
         payment_method: t.payment_method,
+        image_path: t.image_path ?? null,
       })
       .select()
       .single();
@@ -224,6 +235,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       category: data.category,
       amount: data.amount,
       payment_method: data.payment_method === 'non_cash' ? 'non_cash' : 'cash',
+      image_path: data.image_path ?? null,
       date: data.date,
     };
 
@@ -242,6 +254,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         category: t.category,
         amount: t.amount,
         payment_method: t.payment_method,
+        image_path: t.image_path ?? null,
       })
       .eq('id', t.id)
       .eq('user_id', user.id);
@@ -255,6 +268,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const deleteTransaction = async (id: string) => {
     if (!user) return;
 
+    const deleted = state.transactions.find((t) => t.id === id);
+
     const { error } = await supabase
       .from('transactions')
       .delete()
@@ -262,6 +277,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       .eq('user_id', user.id);
 
     if (!error) {
+      if (deleted && deleted.image_path) {
+        removeImageFile(RECEIPTS_BUCKET, deleted.image_path);
+      }
       dispatch({ type: 'DELETE_TRANSACTION', payload: id });
     }
   };
