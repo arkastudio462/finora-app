@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   description text NOT NULL,
   category text NOT NULL,
   amount numeric NOT NULL,
+  payment_method text NOT NULL DEFAULT 'cash' CHECK (payment_method IN ('cash', 'non_cash')),
   date timestamptz DEFAULT now() NOT NULL,
   created_at timestamptz DEFAULT now() NOT NULL
 );
@@ -65,3 +66,20 @@ CREATE POLICY "Users can delete own budgets"
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
+
+-- ============================================
+-- 6. UPGRADE (jalankan HANYA bagian ini untuk database yang sudah ada)
+-- ============================================
+ALTER TABLE transactions
+  ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'cash';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'transactions_payment_method_check'
+  ) THEN
+    ALTER TABLE transactions
+      ADD CONSTRAINT transactions_payment_method_check
+      CHECK (payment_method IN ('cash', 'non_cash'));
+  END IF;
+END $$;

@@ -14,6 +14,9 @@ export const COLORS = {
   cardLight: '#fff7eb',
 };
 
+export const TAB_BAR_HEIGHT = 72;
+export const TAB_BAR_BOTTOM_GAP = 12;
+
 export const CATEGORIES = [
   'Food',
   'Transportation',

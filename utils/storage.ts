@@ -1,15 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const KEYS = {
-  finance: 'finora_finance',
-  transactions: 'finora_transactions',
-  budgets: 'finora_budgets',
-  user: 'finora_user',
-} as const;
+import * as SecureStore from 'expo-secure-store';
 
 export async function saveData<T>(key: string, data: T): Promise<void> {
   try {
-    await AsyncStorage.setItem(key, JSON.stringify(data));
+    await SecureStore.setItemAsync(key, JSON.stringify(data));
   } catch (e) {
     console.error('Failed to save data:', e);
   }
@@ -17,7 +10,7 @@ export async function saveData<T>(key: string, data: T): Promise<void> {
 
 export async function loadData<T>(key: string): Promise<T | null> {
   try {
-    const json = await AsyncStorage.getItem(key);
+    const json = await SecureStore.getItemAsync(key);
     return json ? JSON.parse(json) : null;
   } catch (e) {
     console.error('Failed to load data:', e);
@@ -27,10 +20,12 @@ export async function loadData<T>(key: string): Promise<T | null> {
 
 export async function removeData(key: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(key);
+    await SecureStore.deleteItemAsync(key);
   } catch (e) {
     console.error('Failed to remove data:', e);
   }
 }
 
-export { KEYS };
+export const KEYS = {
+  user: 'finora_user',
+} as const;

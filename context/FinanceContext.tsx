@@ -2,12 +2,15 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
+export type PaymentMethod = 'cash' | 'non_cash';
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
   description: string;
   category: string;
   amount: number;
+  payment_method: PaymentMethod;
   date: string;
 }
 
@@ -108,10 +111,25 @@ function financeReducer(state: FinanceState, action: FinanceAction): FinanceStat
   }
 }
 
+function getWriteErrorMessage(error: { code?: string; message?: string }): string {
+  const code = error.code || '';
+  const message = error.message || '';
+  if (code === '42703' || code === 'PGRST204' || message.includes('payment_method')) {
+    return 'Kolom payment_method belum ada di database. Jalankan supabase/upgrade_payment_method.sql di Supabase SQL Editor, lalu coba lagi.';
+  }
+  if (code === '42P01' || message.includes('relation') && message.includes('does not exist')) {
+    return 'Tabel belum dibuat. Jalankan supabase/migration.sql di Supabase SQL Editor.';
+  }
+  if (code === 'PGRST301' || code === '42501') {
+    return 'Tidak punya akses menyimpan data. Silakan login ulang.';
+  }
+  return `Gagal menyimpan: ${message || code || 'unknown error'}`;
+}
+
 interface FinanceContextType {
   state: FinanceState;
-  addTransaction: (t: Omit<Transaction, 'id' | 'date'>) => Promise<void>;
-  updateTransaction: (t: Transaction) => Promise<void>;
+  addTransaction: (t: Omit<Transaction, 'id' | 'date'>) => Promise<string | null>;
+  updateTransaction: (t: Transaction) => Promise<string | null>;
   deleteTransaction: (id: string) => Promise<void>;
   addBudget: (category: string, amount: number) => Promise<string | null>;
   updateBudget: (b: Budget) => Promise<void>;
@@ -156,6 +174,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       description: t.description,
       category: t.category,
       amount: t.amount,
+      payment_method: t.payment_method === 'non_cash' ? 'non_cash' : 'cash',
       date: t.date,
     }));
 
@@ -179,8 +198,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const addTransaction = async (t: Omit<Transaction, 'id' | 'date'>) => {
-    if (!user) return;
+  const addTransaction = async (t: Omit<Transaction, 'id' | 'date'>): Promise<string | null> => {
+    if (!user) return 'Anda belum login';
 
     const { data, error } = await supabase
       .from('transactions')
@@ -190,11 +209,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         description: t.description,
         category: t.category,
         amount: t.amount,
+        payment_method: t.payment_method,
       })
       .select()
       .single();
 
-    if (error || !data) return;
+    if (error) return getWriteErrorMessage(error);
+    if (!data) return 'Transaksi gagal disimpan';
 
     const newTx: Transaction = {
       id: data.id,
@@ -202,14 +223,16 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       description: data.description,
       category: data.category,
       amount: data.amount,
+      payment_method: data.payment_method === 'non_cash' ? 'non_cash' : 'cash',
       date: data.date,
     };
 
     dispatch({ type: 'ADD_TRANSACTION', payload: newTx });
+    return null;
   };
 
-  const updateTransaction = async (t: Transaction) => {
-    if (!user) return;
+  const updateTransaction = async (t: Transaction): Promise<string | null> => {
+    if (!user) return 'Anda belum login';
 
     const { error } = await supabase
       .from('transactions')
@@ -218,13 +241,15 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         description: t.description,
         category: t.category,
         amount: t.amount,
+        payment_method: t.payment_method,
       })
       .eq('id', t.id)
       .eq('user_id', user.id);
 
-    if (!error) {
-      dispatch({ type: 'UPDATE_TRANSACTION', payload: t });
-    }
+    if (error) return getWriteErrorMessage(error);
+
+    dispatch({ type: 'UPDATE_TRANSACTION', payload: t });
+    return null;
   };
 
   const deleteTransaction = async (id: string) => {

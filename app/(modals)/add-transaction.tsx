@@ -12,14 +12,21 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFinance } from '@/context/FinanceContext';
+import { useFinance, PaymentMethod } from '@/context/FinanceContext';
 import { useToast } from '@/components/Toast';
+import { useCustomCategories, MAX_CATEGORY_LENGTH } from '@/hooks/useCustomCategories';
 import { COLORS, CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
+  { key: 'cash', label: 'Tunai', icon: 'cash' },
+  { key: 'non_cash', label: 'Nontunai', icon: 'credit-card-outline' },
+];
 
 export default function AddTransactionModal() {
   const { addTransaction, updateTransaction, state } = useFinance();
   const { showToast } = useToast();
+  const { categories: customCategories, addCategory } = useCustomCategories();
   const router = useRouter();
   const params = useLocalSearchParams<{
     editId?: string;
@@ -38,6 +45,9 @@ export default function AddTransactionModal() {
   const [amount, setAmount] = useState(params.amount || '');
   const [description, setDescription] = useState(params.description || '');
   const [category, setCategory] = useState(params.category || CATEGORIES[0]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
 
   useEffect(() => {
     if (params.editId) {
@@ -47,9 +57,26 @@ export default function AddTransactionModal() {
         setAmount(String(tx.amount));
         setDescription(tx.description);
         setCategory(tx.category);
+        setPaymentMethod(tx.payment_method === 'non_cash' ? 'non_cash' : 'cash');
       }
     }
   }, [params.editId]);
+
+  const categoryOptions = Array.from(
+    new Set([...CATEGORIES, ...customCategories, ...(category ? [category] : [])])
+  );
+
+  const handleAddCategory = async () => {
+    const error = await addCategory(newCategory);
+    if (error) {
+      Alert.alert('Kategori', error);
+      return;
+    }
+    setCategory(newCategory.trim());
+    setNewCategory('');
+    setShowNewCategory(false);
+    showToast('Kategori ditambahkan', 'success');
+  };
 
   const handleSave = async () => {
     if (!amount || Number(amount) <= 0) {
@@ -61,24 +88,38 @@ export default function AddTransactionModal() {
       return;
     }
 
+    const known = CATEGORIES.some((c) => c === category) || customCategories.includes(category);
+    if (!known) await addCategory(category);
+
+    let error: string | null = null;
+
     if (isEdit && params.editId) {
       const existing = state.transactions.find((t) => t.id === params.editId);
-      if (existing) {
-        await updateTransaction({
-          ...existing,
-          type,
-          description: description.trim(),
-          category,
-          amount: Number(amount),
-        });
+      if (!existing) {
+        Alert.alert('Error', 'Transaction not found');
+        return;
       }
-    } else {
-      await addTransaction({
+      error = await updateTransaction({
+        ...existing,
         type,
         description: description.trim(),
         category,
         amount: Number(amount),
+        payment_method: paymentMethod,
       });
+    } else {
+      error = await addTransaction({
+        type,
+        description: description.trim(),
+        category,
+        amount: Number(amount),
+        payment_method: paymentMethod,
+      });
+    }
+
+    if (error) {
+      Alert.alert('Gagal menyimpan', error);
+      return;
     }
 
     showToast(isEdit ? 'Transaction updated' : 'Transaction added', 'success');
@@ -150,11 +191,14 @@ export default function AddTransactionModal() {
 
         <Text style={styles.label}>Category</Text>
         <View style={styles.categoryGrid}>
-          {CATEGORIES.map((cat) => (
+          {categoryOptions.map((cat) => (
             <TouchableOpacity
               key={cat}
               style={[styles.categoryChip, category === cat && styles.categoryChipActive]}
-              onPress={() => setCategory(cat)}
+              onPress={() => {
+                setCategory(cat);
+                setShowNewCategory(false);
+              }}
             >
               <MaterialCommunityIcons
                 name={category === cat ? 'check-circle' : 'circle-outline'}
@@ -166,6 +210,62 @@ export default function AddTransactionModal() {
               </Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={[styles.categoryChip, styles.addCategoryChip]}
+            onPress={() => setShowNewCategory((v) => !v)}
+          >
+            <MaterialCommunityIcons
+              name={showNewCategory ? 'close' : 'plus'}
+              size={14}
+              color={COLORS.primary}
+            />
+            <Text style={[styles.categoryText, styles.addCategoryText]}>
+              {showNewCategory ? 'Batal' : 'Kategori baru'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {showNewCategory && (
+          <View style={styles.newCategoryRow}>
+            <TextInput
+              style={styles.newCategoryInput}
+              placeholder="Nama kategori custom"
+              placeholderTextColor={COLORS.textMuted}
+              value={newCategory}
+              onChangeText={(v) => setNewCategory(v.slice(0, MAX_CATEGORY_LENGTH + 10))}
+              maxLength={MAX_CATEGORY_LENGTH + 10}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleAddCategory}
+            />
+            <TouchableOpacity style={styles.newCategoryConfirm} onPress={handleAddCategory}>
+              <MaterialCommunityIcons name="check" size={18} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <Text style={styles.label}>Payment method</Text>
+        <View style={styles.paymentRow}>
+          {PAYMENT_METHODS.map((m) => {
+            const active = paymentMethod === m.key;
+            return (
+              <TouchableOpacity
+                key={m.key}
+                style={[styles.paymentBtn, active && styles.paymentBtnActive]}
+                onPress={() => setPaymentMethod(m.key)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={m.icon as any}
+                  size={16}
+                  color={active ? COLORS.white : COLORS.textSecondary}
+                />
+                <Text style={[styles.paymentBtnText, active && styles.paymentBtnTextActive]}>
+                  {m.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
@@ -317,6 +417,70 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   categoryTextActive: {
+    color: COLORS.white,
+  },
+  addCategoryChip: {
+    borderStyle: 'dashed',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.cardLight,
+  },
+  addCategoryText: {
+    color: COLORS.primary,
+  },
+  newCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: -12,
+    marginBottom: 20,
+  },
+  newCategoryInput: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 13,
+    color: COLORS.textPrimary,
+  },
+  newCategoryConfirm: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  paymentRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  paymentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  paymentBtnActive: {
+    backgroundColor: COLORS.cardDark,
+    borderColor: COLORS.cardDark,
+  },
+  paymentBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  paymentBtnTextActive: {
     color: COLORS.white,
   },
 

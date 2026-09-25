@@ -1,9 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+type IconName = string;
 
 const CATEGORY_ICON_MAP: Record<string, IconName> = {
-  Food: 'shopping-bag',
+  Food: 'shopping',
   Transportation: 'bike',
   Housing: 'home',
   Shopping: 'cart',

@@ -25,14 +25,18 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const bottomPadding = useTabBarPadding();
 
-  const [userName, setUserName] = useState('Tega');
+  const defaultName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
+  const [userName, setUserName] = useState(defaultName);
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(userName);
 
   useEffect(() => {
     (async () => {
       const saved = await loadData<string>(KEYS.user);
-      if (saved) setUserName(saved);
+      if (saved) {
+        setUserName(saved);
+        setTempName(saved);
+      }
     })();
   }, []);
 
@@ -76,6 +80,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       style={[styles.container, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={{ paddingBottom: bottomPadding }}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.profileHeader}>
@@ -156,8 +161,6 @@ export default function ProfileScreen() {
         <MaterialCommunityIcons name="logout" size={18} color={COLORS.danger} />
         <Text style={styles.logoutText}>Sign Out</Text>
       </TouchableOpacity>
-
-      <View style={{ height: bottomPadding }} />
     </ScrollView>
   );
 }

@@ -14,12 +14,26 @@ export function useAuth() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
+    let subscription: { unsubscribe: () => void } | null = null;
 
-    return () => subscription.unsubscribe();
+    try {
+      const result = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+      });
+      subscription = result.data?.subscription ?? null;
+    } catch {
+      // WebSocket not available - fallback to polling
+      const interval = setInterval(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+
+    return () => subscription?.unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string) => {

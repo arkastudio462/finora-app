@@ -1,4 +1,5 @@
 import { useFonts } from 'expo-font';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -46,6 +47,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
+    ...MaterialCommunityIcons.font,
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
@@ -70,8 +72,8 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(modals)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="(modals)" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'fullScreenModal' }} />
           </Stack>
         </AuthGate>
       </ToastProvider>

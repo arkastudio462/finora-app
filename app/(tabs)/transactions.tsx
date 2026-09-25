@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFinance, Transaction } from '@/context/FinanceContext';
 import { useToast } from '@/components/Toast';
-import { formatRupiah, formatDate } from '@/utils/format';
+import { formatRupiah, formatDate, getPaymentMethodLabel } from '@/utils/format';
 import { getCategoryIcon } from '@/utils/icons';
 import { COLORS, CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -68,7 +68,7 @@ function SwipeableTransactionItem({ transaction, onEdit, onDelete }: {
           <MaterialCommunityIcons name="pencil" size={18} color={COLORS.white} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.swipeDeleteBtn} onPress={onDelete}>
-          <MaterialCommunityIcons name="trash-2" size={18} color={COLORS.white} />
+          <MaterialCommunityIcons name="delete" size={18} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
@@ -81,18 +81,10 @@ function SwipeableTransactionItem({ transaction, onEdit, onDelete }: {
         </View>
         <View style={styles.transactionInfo}>
           <Text style={styles.transactionDesc}>{transaction.description}</Text>
-          <Text style={styles.transactionMeta}>{transaction.category} · {formatDate(transaction.date)}</Text>
+          <Text style={styles.transactionMeta}>{transaction.category} · {getPaymentMethodLabel(transaction.payment_method)} · {formatDate(transaction.date)}</Text>
         </View>
         <View style={styles.transactionRight}>
           <Text style={[styles.transactionAmount, { color }]}>{sign} {formatRupiah(transaction.amount)}</Text>
-          <View style={styles.transactionBtns}>
-            <TouchableOpacity style={styles.editBtn} onPress={onEdit}>
-              <MaterialCommunityIcons name="pencil" size={14} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
-              <MaterialCommunityIcons name="trash-2" size={14} color={COLORS.danger} />
-            </TouchableOpacity>
-          </View>
         </View>
       </Animated.View>
     </View>
@@ -182,21 +174,24 @@ export default function TransactionsScreen() {
         )}
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsContainer}>
-        {FILTER_CHIPS.map((chip) => (
-          <TouchableOpacity
-            key={chip}
-            style={[styles.chip, activeFilter === chip && styles.chipActive]}
-            onPress={() => setActiveFilter(chip)}
-          >
-            <Text style={[styles.chipText, activeFilter === chip && styles.chipTextActive]}>
-              {chip}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.chipsContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+          {FILTER_CHIPS.map((chip) => (
+            <TouchableOpacity
+              key={chip}
+              style={[styles.chip, activeFilter === chip && styles.chipActive]}
+              onPress={() => setActiveFilter(chip)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.chipText, activeFilter === chip && styles.chipTextActive]}>
+                {chip}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
-      <ScrollView style={[styles.listContainer, { marginBottom: bottomPadding }]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.listContainer} contentContainerStyle={{ paddingBottom: bottomPadding }} showsVerticalScrollIndicator={false}>
         {filtered.length === 0 ? (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="receipt" size={48} color={COLORS.textMuted} />
@@ -260,21 +255,25 @@ const styles = StyleSheet.create({
   chipsContainer: {
     marginBottom: 16,
   },
+  chipsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 20,
+  },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginRight: 8,
   },
   chipActive: {
-    backgroundColor: COLORS.cardDark,
-    borderColor: COLORS.cardDark,
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   chipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: COLORS.textSecondary,
   },

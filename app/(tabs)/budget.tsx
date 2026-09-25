@@ -89,7 +89,7 @@ function SwipeableBudgetItem({ budget, onEdit, onDelete }: {
           <MaterialCommunityIcons name="pencil" size={18} color={COLORS.white} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.swipeDeleteBtn} onPress={onDelete}>
-          <MaterialCommunityIcons name="trash-2" size={18} color={COLORS.white} />
+          <MaterialCommunityIcons name="delete" size={18} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
@@ -106,14 +106,6 @@ function SwipeableBudgetItem({ budget, onEdit, onDelete }: {
               <Text style={styles.budgetItemCategory}>{budget.category}</Text>
               <Text style={styles.budgetItemLimit}>Limit: {formatRupiah(budget.amount)}</Text>
             </View>
-          </View>
-          <View style={styles.budgetItemActions}>
-            <TouchableOpacity style={styles.smallActionBtn} onPress={onEdit}>
-              <MaterialCommunityIcons name="pencil" size={12} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.smallActionBtn, { backgroundColor: 'rgba(239,68,68,0.05)' }]} onPress={onDelete}>
-              <MaterialCommunityIcons name="trash-2" size={12} color={COLORS.danger} />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -175,7 +167,7 @@ export default function BudgetScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { paddingTop: insets.top + 16 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.container, { paddingTop: insets.top + 16 }]} contentContainerStyle={{ paddingBottom: bottomPadding }} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Budget</Text>
@@ -212,8 +204,6 @@ export default function BudgetScreen() {
           ))}
         </View>
       )}
-
-      <View style={{ height: bottomPadding }} />
     </ScrollView>
   );
 }

@@ -33,3 +33,9 @@ export function formatDate(dateString: string): string {
 export function getTodayString(): string {
   return new Date().toISOString();
 }
+
+export type PaymentMethod = 'cash' | 'non_cash';
+
+export function getPaymentMethodLabel(method?: PaymentMethod): string {
+  return method === 'non_cash' ? 'Nontunai' : 'Tunai';
+}

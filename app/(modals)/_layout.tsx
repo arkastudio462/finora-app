@@ -6,14 +6,14 @@ export default function ModalsLayout() {
       <Stack.Screen
         name="add-transaction"
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
           animation: 'slide_from_bottom',
         }}
       />
       <Stack.Screen
         name="add-budget"
         options={{
-          presentation: 'modal',
+          presentation: 'fullScreenModal',
           animation: 'slide_from_bottom',
         }}
       />
