@@ -19,6 +19,11 @@ web-build/
 *.apk
 *.ap_
 *.aab
+android/
+ios/
+
+# Keystore untuk signing release CI
+*.keystore
 
 # iOS
 *.ipa

@@ -1,0 +1,104 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      EXPO_NO_TELEMETRY: 1
+      CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate native Android project
+        run: npx expo prebuild -p android --no-install
+
+      - name: Build APK (assembleRelease)
+        working-directory: android
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Package APK
+        id: apk
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./app.json').expo.version")"
+          SHA="$(echo "$GITHUB_SHA" | cut -c1-7)"
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/release/app-release.apk "artifacts/finora-v${VERSION}-b${GITHUB_RUN_NUMBER}-${SHA}.apk"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          ls -lh artifacts
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: finora-apk
+          path: artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish to GitHub Releases
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.apk.outputs.version }}
+        run: |
+          set -euo pipefail
+          APK="$(ls artifacts/*.apk | head -n1)"
+          NOTES="$(printf 'Build otomatis dari commit %s.\n\n**Versi:** v%s\n**Run:** #%s\n\n**Cara install:** unduh APK, buka filenya di perangkat Android, lalu izinkan install dari sumber tidak dikenal.' "$GITHUB_SHA" "$VERSION" "$GITHUB_RUN_NUMBER")"
+
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+            ASSET="artifacts/finora-${TAG}.apk"
+            cp "$APK" "$ASSET"
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release upload "$TAG" "$ASSET" --clobber
+              gh release edit "$TAG" --title "Finora ${TAG}" --notes "$NOTES"
+            else
+              gh release create "$TAG" "$ASSET" --title "Finora ${TAG}" --notes "$NOTES" --target "$GITHUB_SHA" --latest
+            fi
+          else
+            TAG="latest"
+            ASSET="artifacts/finora-latest.apk"
+            cp "$APK" "$ASSET"
+            git tag -f "$TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/${TAG}:refs/tags/${TAG}" --force
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release upload "$TAG" "$ASSET" --clobber
+              gh release edit "$TAG" --title "Finora v${VERSION} (build #${GITHUB_RUN_NUMBER})" --notes "$NOTES" --latest
+            else
+              gh release create "$TAG" "$ASSET" --title "Finora v${VERSION} (build #${GITHUB_RUN_NUMBER})" --notes "$NOTES" --latest
+            fi
+          fi
