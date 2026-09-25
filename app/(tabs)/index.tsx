@@ -9,7 +9,7 @@ import {
   Animated,
   PanResponder,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFinance, Transaction } from '@/context/FinanceContext';
 import { formatRupiah, formatDate, getPaymentMethodLabel } from '@/utils/format';
@@ -526,16 +526,19 @@ export default function HomeScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickingStart, setPickingStart] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const saved = await loadData<string>(KEYS.user);
-      if (saved) {
-        setUserName(saved);
-      } else {
-        setUserName(user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there');
-      }
-    })();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      (async () => {
+        const saved = await loadData<string>(KEYS.user);
+        if (!alive) return;
+        setUserName(saved || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there');
+      })();
+      return () => {
+        alive = false;
+      };
+    }, [user])
+  );
 
   const filteredTransactions = useMemo(
     () => filterByPeriod(state.transactions, activePeriod, customStart, customEnd),

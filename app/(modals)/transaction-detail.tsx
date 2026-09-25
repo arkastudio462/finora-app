@@ -57,7 +57,7 @@ export default function TransactionDetailModal() {
         <MaterialCommunityIcons name="arrow-left" size={20} color={colors.textPrimary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Detail transaksi</Text>
-      <View style={styles.headerBtn} />
+      <View style={styles.headerSpacer} />
     </View>
   );
 
@@ -197,6 +197,10 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
   headerTitle: {
     fontSize: 15,

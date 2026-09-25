@@ -137,12 +137,12 @@ const createStyles = (colors: Colors) =>
     container: {
       flex: 1,
       backgroundColor: colors.background,
-      paddingHorizontal: 24,
     },
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      paddingHorizontal: 24,
     },
     brand: {
       flexDirection: 'row',
@@ -175,7 +175,7 @@ const createStyles = (colors: Colors) =>
     slide: {
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 8,
+      paddingHorizontal: 32,
     },
     slideIconWrap: {
       width: 120,
@@ -206,6 +206,7 @@ const createStyles = (colors: Colors) =>
 
     footer: {
       alignItems: 'center',
+      paddingHorizontal: 24,
     },
     dots: {
       flexDirection: 'row',
