@@ -67,7 +67,7 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild -p android --no-install
 
-      - name: Increase JVM memory limits (fix Metaspace OOM)
+      - name: Configure Gradle (memori + ukuran APK)
         run: |
           set -euo pipefail
           PROPS=android/gradle.properties
@@ -83,9 +83,14 @@ jobs:
               printf '%s=%s\n' "$key" "$value" >> "$PROPS"
             fi
           }
+          # Batasi Metaspace/heap agar build tidak OOM
           set_prop org.gradle.jvmargs "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
           set_prop kotlin.daemon.jvm.options "-Xmx2g,-XX:MaxMetaspaceSize=1g"
-          grep -E 'jvmargs|kotlin\.daemon' "$PROPS"
+          # Perkecil APK: buang ABI emulator (hemat ~46 MiB) + aktifkan R8
+          set_prop reactNativeArchitectures "armeabi-v7a,arm64-v8a"
+          set_prop android.enableMinifyInReleaseBuilds "true"
+          set_prop android.enableShrinkResourcesInReleaseBuilds "true"
+          grep -E 'jvmargs|kotlin\.daemon|reactNativeArchitectures|enableMinify|enableShrink' "$PROPS"
 
       - name: Build APK (assembleRelease)
         working-directory: android
