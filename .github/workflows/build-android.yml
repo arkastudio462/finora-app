@@ -46,6 +46,22 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild -p android --no-install
 
+      - name: Increase JVM memory limits (fix Metaspace OOM)
+        run: |
+          set -euo pipefail
+          PROPS=android/gradle.properties
+          set_prop() {
+            key="$1"; value="$2"
+            if grep -q "^${key}=" "$PROPS"; then
+              sed -i "s|^${key}=.*|${key}=${value}|" "$PROPS"
+            else
+              printf '%s=%s\n' "$key" "$value" >> "$PROPS"
+            fi
+          }
+          set_prop org.gradle.jvmargs "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          set_prop kotlin.daemon.jvm.options "-Xmx2g,-XX:MaxMetaspaceSize=1g"
+          grep -E 'jvmargs|kotlin\.daemon' "$PROPS"
+
       - name: Build APK (assembleRelease)
         working-directory: android
         run: ./gradlew assembleRelease --stacktrace
