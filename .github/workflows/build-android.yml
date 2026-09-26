@@ -86,11 +86,16 @@ jobs:
           # Batasi Metaspace/heap agar build tidak OOM
           set_prop org.gradle.jvmargs "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
           set_prop kotlin.daemon.jvm.options "-Xmx2g,-XX:MaxMetaspaceSize=1g"
-          # Perkecil APK: buang ABI emulator (hemat ~46 MiB) + aktifkan R8
-          set_prop reactNativeArchitectures "armeabi-v7a,arm64-v8a"
+          # Perkecil APK: arm64 saja (buang armeabi-v7a, hemat ~16 MiB) + aktifkan R8
+          set_prop reactNativeArchitectures "arm64-v8a"
           set_prop android.enableMinifyInReleaseBuilds "true"
           set_prop android.enableShrinkResourcesInReleaseBuilds "true"
-          grep -E 'jvmargs|kotlin\.daemon|reactNativeArchitectures|enableMinify|enableShrink' "$PROPS"
+          # Kompres .so di dalam APK (hemat ~24 MiB; RN mengekstraknya saat install)
+          set_prop expo.useLegacyPackaging "true"
+          grep -E 'jvmargs|kotlin\.daemon|reactNativeArchitectures|enableMinify|enableShrink|useLegacyPackaging' "$PROPS"
+          # Kompres JS bundle (RN default noCompress agar bisa di-mmap; hemat ~2,4 MiB)
+          printf '\nreact.enableBundleCompression.set(true)\n' >> android/app/build.gradle
+          tail -n 3 android/app/build.gradle
 
       - name: Build APK (assembleRelease)
         working-directory: android

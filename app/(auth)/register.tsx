@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -81,6 +82,12 @@ export default function RegisterScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
+
+        <Image
+          source={require('../../assets/images/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
 
         <View style={styles.header}>
           <Text style={styles.title}>Create Account</Text>
@@ -186,6 +193,12 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+    marginBottom: 20,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
     marginBottom: 20,
   },
   header: {
