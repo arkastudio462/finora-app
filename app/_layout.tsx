@@ -9,8 +9,10 @@ import { FinanceProvider } from '@/context/FinanceContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { ToastProvider } from '@/components/Toast';
 import { AppAlertProvider } from '@/components/AppAlert';
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { isWelcomeSeen, loadWelcomeSeen } from '@/utils/welcome';
+import { configureNotifications } from '@/utils/notifications';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -19,6 +21,7 @@ export const unstable_settings = {
 };
 
 SplashScreen.preventAutoHideAsync();
+configureNotifications();
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -74,6 +77,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     <>
       <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
       {children}
+      <UpdateBanner />
     </>
   );
 }

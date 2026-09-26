@@ -115,6 +115,8 @@ jobs:
           SHA="$(echo "$GITHUB_SHA" | cut -c1-7)"
           mkdir -p artifacts
           cp android/app/build/outputs/apk/release/app-release.apk "artifacts/finora-v${VERSION}-b${GITHUB_RUN_NUMBER}-${SHA}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "artifacts/finora-latest.apk"
+          node scripts/release-info.js artifacts/release-info.json
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           ls -lh artifacts
 
@@ -122,7 +124,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: finora-apk
-          path: artifacts/*.apk
+          path: |
+            artifacts/finora-v*.apk
+            artifacts/release-info.json
           if-no-files-found: error
           retention-days: 90
 
@@ -133,7 +137,8 @@ jobs:
           VERSION: ${{ steps.apk.outputs.version }}
         run: |
           set -euo pipefail
-          APK="$(ls artifacts/*.apk | head -n1)"
+          APK="$(ls artifacts/finora-v*.apk | head -n1)"
+          LATEST_APK="artifacts/finora-latest.apk"
           NOTES="$(printf 'Build otomatis dari commit %s.\n\n**Versi:** v%s\n**Run:** #%s\n\n**Cara install:** unduh APK, buka filenya di perangkat Android, lalu izinkan install dari sumber tidak dikenal.' "$GITHUB_SHA" "$VERSION" "$GITHUB_RUN_NUMBER")"
 
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
@@ -146,16 +151,58 @@ jobs:
             else
               gh release create "$TAG" "$ASSET" --title "Finora ${TAG}" --notes "$NOTES" --target "$GITHUB_SHA" --latest
             fi
-          else
-            TAG="latest"
-            ASSET="artifacts/finora-latest.apk"
-            cp "$APK" "$ASSET"
-            git tag -f "$TAG" "$GITHUB_SHA"
-            git push origin "refs/tags/${TAG}:refs/tags/${TAG}" --force
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              gh release upload "$TAG" "$ASSET" --clobber
-              gh release edit "$TAG" --title "Finora v${VERSION} (build #${GITHUB_RUN_NUMBER})" --notes "$NOTES" --latest
-            else
-              gh release create "$TAG" "$ASSET" --title "Finora v${VERSION} (build #${GITHUB_RUN_NUMBER})" --notes "$NOTES" --latest
-            fi
           fi
+
+          git tag -f latest "$GITHUB_SHA"
+          git push origin refs/tags/latest:refs/tags/latest --force
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest "$LATEST_APK" artifacts/release-info.json --clobber
+            gh release edit latest --latest --title "Finora v${VERSION} (build #${GITHUB_RUN_NUMBER})" --notes "$NOTES"
+          else
+            gh release create latest "$LATEST_APK" artifacts/release-info.json --latest --target "$GITHUB_SHA" --title "Finora v${VERSION} (build #${GITHUB_RUN_NUMBER})" --notes "$NOTES"
+          fi
+
+  update:
+    name: Publish EAS Update (OTA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPO_NO_TELEMETRY: 1
+      CI: true
+    steps:
+      - name: Check EXPO_TOKEN
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Secret EXPO_TOKEN belum diatur. Buat token di https://expo.dev/settings/access-tokens lalu tambahkan di Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish update ke channel production
+        run: |
+          set -euo pipefail
+          eas update \
+            --channel production \
+            --environment production \
+            -p android \
+            --message "Build #${GITHUB_RUN_NUMBER} (${GITHUB_SHA})" \
+            --non-interactive
