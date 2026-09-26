@@ -94,7 +94,7 @@ jobs:
           set_prop expo.useLegacyPackaging "true"
           grep -E 'jvmargs|kotlin\.daemon|reactNativeArchitectures|enableMinify|enableShrink|useLegacyPackaging' "$PROPS"
           # Kompres JS bundle (RN default noCompress agar bisa di-mmap; hemat ~2,4 MiB)
-          printf '\nreact.enableBundleCompression.set(true)\n' >> android/app/build.gradle
+          printf '\nreact { enableBundleCompression = true }\n' >> android/app/build.gradle
           tail -n 3 android/app/build.gradle
 
       - name: Build APK (assembleRelease)
