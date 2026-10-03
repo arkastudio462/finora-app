@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { useFinance } from '@/context/FinanceContext';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -45,6 +47,9 @@ export default function ProfileScreen() {
   const alert = useAlert();
   const insets = useSafeAreaInsets();
   const bottomPadding = useTabBarPadding();
+
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const updateRev = Updates.updateId ? Updates.updateId.slice(0, 7) : '';
 
   const defaultName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
   const [userName, setUserName] = useState(defaultName);
@@ -298,9 +303,13 @@ export default function ProfileScreen() {
           Personal finance tracker to manage your income, expenses, and budgets.
         </Text>
         <View style={styles.aboutMeta}>
-          <Text style={styles.aboutVersion}>Version 1.0.0</Text>
-          <Text style={styles.aboutDot}>·</Text>
-          <Text style={styles.aboutPlatform}>Expo SDK 57</Text>
+          <Text style={styles.aboutVersion}>Version {appVersion}</Text>
+          {updateRev ? (
+            <>
+              <Text style={styles.aboutDot}>·</Text>
+              <Text style={styles.aboutRev}>Rev {updateRev}</Text>
+            </>
+          ) : null}
         </View>
       </View>
 
@@ -563,7 +572,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
   },
-  aboutPlatform: {
+  aboutRev: {
     fontSize: 11,
     color: colors.textMuted,
   },
