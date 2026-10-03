@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
@@ -16,6 +16,7 @@ import type { Colors } from '@/constants/theme';
 import { useToast } from '@/components/Toast';
 import { useAlert } from '@/components/AppAlert';
 import { LoadingBlock, ErrorBlock } from '@/components/DataState';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { useSharedGroups } from '@/hooks/useSharedLedger';
 import { formatDate } from '@/utils/format';
 
@@ -30,6 +31,12 @@ export default function SharedLedgerModal() {
 
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchGroups();
+    }, [fetchGroups]),
+  );
 
   const handleCreate = async () => {
     if (busy) return;
@@ -56,6 +63,7 @@ export default function SharedLedgerModal() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      <OfflineBanner />
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.eyebrow}>CATAT BERSAMA</Text>

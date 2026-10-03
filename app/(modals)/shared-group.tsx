@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
@@ -16,6 +16,7 @@ import type { Colors } from '@/constants/theme';
 import { useToast } from '@/components/Toast';
 import { useAlert } from '@/components/AppAlert';
 import { LoadingBlock, ErrorBlock } from '@/components/DataState';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { useSharedGroupDetail } from '@/hooks/useSharedLedger';
 import { formatDate, formatRupiah } from '@/utils/format';
 
@@ -51,6 +52,12 @@ export default function SharedGroupModal() {
 
   const [inviteValue, setInviteValue] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDetail();
+    }, [fetchDetail]),
+  );
 
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
@@ -145,6 +152,7 @@ export default function SharedGroupModal() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      <OfflineBanner />
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
           <MaterialCommunityIcons name="arrow-left" size={20} color={colors.textPrimary} />
