@@ -299,6 +299,8 @@ function financeReducer(state: FinanceState, action: FinanceAction): FinanceStat
 }
 
 function getWriteErrorMessage(error: { code?: string; message?: string }): string {
+  if (isNetworkError(error)) return OFFLINE_MESSAGE;
+
   const code = error.code || '';
   const message = error.message || '';
 

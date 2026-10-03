@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useFinance } from '@/context/FinanceContext';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { isNetworkError, OFFLINE_MESSAGE } from '@/lib/outbox';
 import { pickImage, uploadImageFile, AVATARS_BUCKET } from '@/lib/images';
 import { useToast } from '@/components/Toast';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -78,7 +79,7 @@ export default function ProfileScreen() {
     try {
       const uploaded = await uploadImageFile(AVATARS_BUCKET, picked.uri, user.id, 'avatar');
       if ('error' in uploaded) {
-        showToast(`Gagal upload: ${uploaded.error}`, 'error');
+        showToast(isNetworkError(uploaded.error) ? OFFLINE_MESSAGE : `Gagal upload: ${uploaded.error}`, 'error');
         return;
       }
 
@@ -89,12 +90,15 @@ export default function ProfileScreen() {
         data: { avatar_url: publicUrl },
       });
       if (error) {
-        showToast(`Gagal menyimpan avatar: ${error.message}`, 'error');
+        showToast(isNetworkError(error) ? OFFLINE_MESSAGE : `Gagal menyimpan avatar: ${error.message}`, 'error');
         return;
       }
 
       setAvatarUrl(publicUrl);
       showToast('Foto profil diperbarui', 'success');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      showToast(isNetworkError(e) ? OFFLINE_MESSAGE : `Gagal menyimpan avatar: ${message}`, 'error');
     } finally {
       setUploadingAvatar(false);
     }
@@ -575,6 +579,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginTop: 12,
+    marginBottom: 14,
   },
   menuIcon: {
     width: 36,

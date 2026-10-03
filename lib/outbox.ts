@@ -115,18 +115,39 @@ export const OFFLINE_MESSAGE = 'Tidak ada koneksi internet.';
 
 const NETWORK_PATTERNS = [
   /failed to fetch/i,
-  /network request failed/i,
+  /fetch failed/i,
   /fetcherror/i,
+  /network request failed/i,
   /network error/i,
+  /network connection lost/i,
   /econnrefused/i,
   /econnreset/i,
+  /econnaborted/i,
   /enetunreach/i,
   /ehostunreach/i,
   /etimedout/i,
   /eai_again/i,
   /enotfound/i,
+  /edns/i,
+  /getaddrinfo/i,
+  /econn/i,
   /socket hang up/i,
+  /socket exception/i,
   /load failed/i,
+  /operation timed out/i,
+  /connection refused/i,
+  /connection timed out/i,
+  /connection reset/i,
+  /could not connect/i,
+  /cannot connect/i,
+  /unknownhostexception/i,
+  /unable to resolve host/i,
+  /no address associated with hostname/i,
+  /name resolution/i,
+  /dns error/i,
+  /internet connection appears to be offline/i,
+  /network is unreachable/i,
+  /host is unreachable/i,
 ];
 
 const outboxKey = (userId: string) => `finora:outbox:${userId}`;
@@ -148,6 +169,20 @@ export function isNetworkError(error: unknown): boolean {
       const nested = cause as Record<string, unknown>;
       if (typeof nested.message === 'string') parts.push(nested.message);
       if (typeof nested.code === 'string') parts.push(nested.code);
+      const deeper = nested.cause;
+      if (deeper && typeof deeper === 'object') {
+        const deepest = deeper as Record<string, unknown>;
+        if (typeof deepest.message === 'string') parts.push(deepest.message);
+        if (typeof deepest.code === 'string') parts.push(deepest.code);
+      }
+    }
+    if (Array.isArray(e.errors)) {
+      e.errors.forEach((item) => {
+        if (typeof item === 'string') parts.push(item);
+        else if (item && typeof item === 'object' && typeof (item as any).message === 'string') {
+          parts.push((item as any).message);
+        }
+      });
     }
   }
 

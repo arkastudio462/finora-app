@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/useAuth';
+import { isNetworkError, OFFLINE_MESSAGE } from '@/lib/outbox';
 import { COLORS } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
@@ -56,7 +57,7 @@ export default function RegisterScreen() {
     setLoading(false);
 
     if (error) {
-      alert.error(error.message, 'Registration Failed');
+      alert.error(isNetworkError(error) ? OFFLINE_MESSAGE : error.message, 'Registration Failed');
       return;
     }
 
