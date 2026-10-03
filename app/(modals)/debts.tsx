@@ -26,7 +26,7 @@ import { useCustomCategories } from '@/hooks/useCustomCategories';
 import { CATEGORIES } from '@/constants/theme';
 import type { Colors } from '@/constants/theme';
 import { useColors, useStyles } from '@/context/ThemeContext';
-import { formatRupiah, getPaymentMethodLabel } from '@/utils/format';
+import { formatAmountInput, formatRupiah, getPaymentMethodLabel, parseAmountInput } from '@/utils/format';
 
 type Filter = 'all' | DebtKind;
 
@@ -150,7 +150,7 @@ export default function DebtsModal() {
     setKind(d.kind);
     setCounterparty(d.counterparty);
     setDescription(d.description);
-    setAmount(String(d.amount));
+    setAmount(formatAmountInput(String(d.amount)));
     setCategory(d.category);
     setPaymentMethod(d.payment_method);
     setDueDate(d.due_date ?? '');
@@ -158,8 +158,8 @@ export default function DebtsModal() {
   };
 
   const handleSave = async () => {
-    const value = Number(amount);
-    if (!amount || Number.isNaN(value) || value <= 0) {
+    const value = parseAmountInput(amount);
+    if (!amount || value <= 0) {
       alert.error('Masukkan jumlah yang valid');
       return;
     }
@@ -219,14 +219,14 @@ export default function DebtsModal() {
 
   const openPay = (d: Debt) => {
     setPayingId(d.id);
-    setPayAmount(String(remaining(d)));
+    setPayAmount(formatAmountInput(String(remaining(d))));
     setPayNote('');
   };
 
   const handlePay = async () => {
     if (!payingId) return;
-    const value = Number(payAmount);
-    if (!payAmount || Number.isNaN(value) || value <= 0) {
+    const value = parseAmountInput(payAmount);
+    if (!payAmount || value <= 0) {
       alert.error('Masukkan jumlah pembayaran yang valid');
       return;
     }
@@ -356,8 +356,8 @@ export default function DebtsModal() {
                 placeholder="0"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
-                value={amount}
-                onChangeText={setAmount}
+            value={amount}
+            onChangeText={(text) => setAmount(formatAmountInput(text))}
               />
             </View>
 
@@ -616,8 +616,8 @@ export default function DebtsModal() {
                 placeholder="0"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
-                value={payAmount}
-                onChangeText={setPayAmount}
+            value={payAmount}
+            onChangeText={(text) => setPayAmount(formatAmountInput(text))}
               />
             </View>
 

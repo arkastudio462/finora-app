@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFinance, PaymentMethod } from '@/context/FinanceContext';
 import { useToast } from '@/components/Toast';
+import { formatAmountInput, parseAmountInput } from '@/utils/format';
 import { useCustomCategories, MAX_CATEGORY_LENGTH } from '@/hooks/useCustomCategories';
 import { useAuth } from '@/hooks/useAuth';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
@@ -53,7 +54,7 @@ export default function AddTransactionModal() {
   const [type, setType] = useState<'income' | 'expense'>(
     (params.type as 'income' | 'expense') || 'expense'
   );
-  const [amount, setAmount] = useState(params.amount || '');
+  const [amount, setAmount] = useState(params.amount ? formatAmountInput(params.amount) : '');
   const [description, setDescription] = useState(params.description || '');
   const [category, setCategory] = useState(params.category || CATEGORIES[0]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -68,7 +69,7 @@ export default function AddTransactionModal() {
       const tx = state.transactions.find((t) => t.id === params.editId);
       if (tx) {
         setType(tx.type);
-        setAmount(String(tx.amount));
+        setAmount(formatAmountInput(String(tx.amount)));
         setDescription(tx.description);
         setCategory(tx.category);
         setPaymentMethod(tx.payment_method === 'non_cash' ? 'non_cash' : 'cash');
@@ -102,7 +103,8 @@ export default function AddTransactionModal() {
   };
 
   const handleSave = async () => {
-    if (!amount || Number(amount) <= 0) {
+    const value = parseAmountInput(amount);
+    if (value <= 0) {
       alert.error('Please enter a valid amount');
       return;
     }
@@ -154,7 +156,7 @@ export default function AddTransactionModal() {
         type,
         description: description.trim(),
         category,
-        amount: Number(amount),
+        amount: value,
         payment_method: paymentMethod,
         image_path: finalImagePath,
         localImageUri,
@@ -164,7 +166,7 @@ export default function AddTransactionModal() {
         type,
         description: description.trim(),
         category,
-        amount: Number(amount),
+        amount: value,
         payment_method: paymentMethod,
         image_path: finalImagePath,
         localImageUri,
@@ -230,7 +232,7 @@ export default function AddTransactionModal() {
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
             value={amount}
-            onChangeText={setAmount}
+            onChangeText={(text) => setAmount(formatAmountInput(text))}
           />
         </View>
 

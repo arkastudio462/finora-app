@@ -604,14 +604,23 @@ export default function HomeScreen() {
           <Text style={styles.headerTitle}>Hello, {userName}! 👋</Text>
           <Text style={styles.headerSubtitle}>Manage your money with ease.</Text>
         </View>
-        <TouchableOpacity
-          style={styles.notifButton}
-          activeOpacity={0.7}
-          onPress={() => router.push('/(modals)/notifications')}
-        >
-          <MaterialCommunityIcons name="bell" size={19} color={colors.textPrimary} />
-          {unread && <View style={styles.notifDot} />}
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.notifButton}
+            activeOpacity={0.7}
+            onPress={() => router.push('/(modals)/shared')}
+          >
+            <MaterialCommunityIcons name="account-group-outline" size={19} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.notifButton}
+            activeOpacity={0.7}
+            onPress={() => router.push('/(modals)/notifications')}
+          >
+            <MaterialCommunityIcons name="bell" size={19} color={colors.textPrimary} />
+            {unread && <View style={styles.notifDot} />}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {showDatePicker && (
@@ -703,6 +712,11 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   notifButton: {
     width: 44,

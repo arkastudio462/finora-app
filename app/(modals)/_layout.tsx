@@ -45,6 +45,27 @@ export default function ModalsLayout() {
           animation: 'slide_from_bottom',
         }}
       />
+      <Stack.Screen
+        name="shared"
+        options={{
+          presentation: 'fullScreenModal',
+          animation: 'slide_from_bottom',
+        }}
+      />
+      <Stack.Screen
+        name="shared-group"
+        options={{
+          presentation: 'fullScreenModal',
+          animation: 'slide_from_bottom',
+        }}
+      />
+      <Stack.Screen
+        name="add-shared-transaction"
+        options={{
+          presentation: 'fullScreenModal',
+          animation: 'slide_from_bottom',
+        }}
+      />
     </Stack>
   );
 }

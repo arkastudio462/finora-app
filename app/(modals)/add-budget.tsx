@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFinance } from '@/context/FinanceContext';
 import { useToast } from '@/components/Toast';
+import { formatAmountInput, parseAmountInput } from '@/utils/format';
 import { COLORS, BUDGET_CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
@@ -36,20 +37,21 @@ export default function AddBudgetModal() {
   const isEdit = !!params.editId;
 
   const [category, setCategory] = useState<string>(params.category || BUDGET_CATEGORIES[0]);
-  const [amount, setAmount] = useState(params.amount || '');
+  const [amount, setAmount] = useState(params.amount ? formatAmountInput(params.amount) : '');
 
   useEffect(() => {
     if (params.editId) {
       const budget = state.budgets.find((b) => b.id === params.editId);
       if (budget) {
         setCategory(budget.category);
-        setAmount(String(budget.amount));
+        setAmount(formatAmountInput(String(budget.amount)));
       }
     }
   }, [params.editId]);
 
   const handleSave = async () => {
-    if (!amount || Number(amount) <= 0) {
+    const value = parseAmountInput(amount);
+    if (value <= 0) {
       alert.error('Please enter a valid budget limit');
       return;
     }
@@ -58,10 +60,10 @@ export default function AddBudgetModal() {
       await updateBudget({
         id: params.editId,
         category,
-        amount: Number(amount),
+        amount: value,
       });
     } else {
-      const error = await addBudget(category, Number(amount));
+      const error = await addBudget(category, value);
       if (error) {
         alert.error(error);
         return;
@@ -118,7 +120,7 @@ export default function AddBudgetModal() {
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
             value={amount}
-            onChangeText={setAmount}
+            onChangeText={(text) => setAmount(formatAmountInput(text))}
           />
         </View>
 

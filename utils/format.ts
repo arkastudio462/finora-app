@@ -6,6 +6,19 @@ export function formatRupiah(number: number): string {
   }).format(number);
 }
 
+export function formatAmountInput(value: string): string {
+  const digits = value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  if (!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+export function parseAmountInput(value: string): number {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return 0;
+  const parsed = Number(digits);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 export function formatDate(dateString: string): string {
   const now = new Date();
   const date = new Date(dateString);

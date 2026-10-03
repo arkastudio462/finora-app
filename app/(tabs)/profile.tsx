@@ -11,6 +11,7 @@ import {
   Linking,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useFinance } from '@/context/FinanceContext';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -35,6 +36,7 @@ import { useAlert } from '@/components/AppAlert';
 export default function ProfileScreen() {
   const colors = useColors();
   const styles = useStyles(createStyles);
+  const router = useRouter();
   const { mode, setMode } = useTheme();
   const { state } = useFinance();
   const { user, signOut } = useAuth();
@@ -270,6 +272,21 @@ export default function ProfileScreen() {
           })}
         </View>
       </View>
+
+      <TouchableOpacity
+        style={styles.menuRow}
+        activeOpacity={0.75}
+        onPress={() => router.push('/(modals)/shared')}
+      >
+        <View style={styles.menuIcon}>
+          <MaterialCommunityIcons name="account-group-outline" size={18} color={colors.primaryDark} />
+        </View>
+        <View style={styles.menuInfo}>
+          <Text style={styles.menuTitle}>Catat Bersama</Text>
+          <Text style={styles.menuSub}>Buku kas grup bersama pasangan, keluarga, atau teman</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+      </TouchableOpacity>
 
       <View style={styles.aboutSection}>
         <Text style={styles.aboutTitle}>About Finora</Text>
@@ -545,6 +562,41 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   aboutPlatform: {
     fontSize: 11,
     color: colors.textMuted,
+  },
+
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  menuIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.cardDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuInfo: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  menuSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+    lineHeight: 16,
   },
 
   supportBtn: {

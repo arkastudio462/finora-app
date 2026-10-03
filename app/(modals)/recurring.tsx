@@ -22,7 +22,7 @@ import {
 import { useToast } from '@/components/Toast';
 import { useCustomCategories } from '@/hooks/useCustomCategories';
 import { COLORS, CATEGORIES } from '@/constants/theme';
-import { formatRupiah, getPaymentMethodLabel } from '@/utils/format';
+import { formatAmountInput, formatRupiah, getPaymentMethodLabel, parseAmountInput } from '@/utils/format';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
 import { useAlert } from '@/components/AppAlert';
@@ -115,7 +115,7 @@ export default function RecurringModal() {
   const openEdit = (item: RecurringTransaction) => {
     setEditId(item.id);
     setType(item.type);
-    setAmount(String(item.amount));
+    setAmount(formatAmountInput(String(item.amount)));
     setDescription(item.description);
     setCategory(item.category);
     setPaymentMethod(item.payment_method);
@@ -124,8 +124,8 @@ export default function RecurringModal() {
   };
 
   const handleSave = async () => {
-    const value = Number(amount);
-    if (!amount || Number.isNaN(value) || value <= 0) {
+    const value = parseAmountInput(amount);
+    if (!amount || value <= 0) {
       alert.error('Masukkan jumlah yang valid');
       return;
     }
@@ -266,7 +266,7 @@ export default function RecurringModal() {
                 placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
                 value={amount}
-                onChangeText={setAmount}
+                onChangeText={(text) => setAmount(formatAmountInput(text))}
               />
             </View>
 
