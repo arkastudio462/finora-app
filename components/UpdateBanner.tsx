@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import { useToast } from '@/components/Toast';
@@ -30,7 +29,6 @@ const META = {
 
 export function UpdateBanner() {
   const { notice, dismiss, apply, busy, justUpdated } = useUpdateNotifier();
-  const insets = useSafeAreaInsets();
   const colors = useColors();
   const styles = useStyles(createStyles);
   const { showToast } = useToast();
@@ -72,10 +70,7 @@ export function UpdateBanner() {
   return (
     <Animated.View
       pointerEvents="box-none"
-      style={[
-        styles.wrap,
-        { top: insets.top + 10, opacity, transform: [{ translateY }] },
-      ]}
+      style={[styles.wrap, { opacity, transform: [{ translateY }] }]}
     >
       <View style={styles.card}>
         <View style={styles.row}>
@@ -118,12 +113,7 @@ export function UpdateBanner() {
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
-    wrap: {
-      position: 'absolute',
-      left: 16,
-      right: 16,
-      zIndex: 998,
-    },
+    wrap: {},
     card: {
       backgroundColor: colors.surface,
       borderRadius: 18,

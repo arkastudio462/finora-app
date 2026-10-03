@@ -18,6 +18,7 @@ import { COLORS } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarPadding } from '@/hooks/useTabBarPadding';
 import { LoadingBlock, ErrorBlock } from '@/components/DataState';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
 import { useAlert } from '@/components/AppAlert';
@@ -174,7 +175,7 @@ export default function BudgetScreen() {
   };
 
 
-  if (state.loadError) {
+  if (state.loadError && !state.isLoaded) {
     return (
       <View
         style={[
@@ -202,6 +203,7 @@ export default function BudgetScreen() {
 
   return (
       <ScrollView style={[styles.container, { paddingTop: insets.top + 16 }]} contentContainerStyle={{ paddingBottom: bottomPadding }} showsVerticalScrollIndicator={false}>
+      <OfflineBanner />
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Budget</Text>

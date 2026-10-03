@@ -49,7 +49,8 @@ export default function TransactionDetailModal() {
   const [preview, setPreview] = useState(false);
 
   const tx = state.transactions.find((t) => t.id === id);
-  const photoUrl = useSignedImageUrl(RECEIPTS_BUCKET, tx?.image_path ?? null);
+  const signedUrl = useSignedImageUrl(RECEIPTS_BUCKET, tx?.image_path ?? null);
+  const photoUrl = tx?.image_path ? signedUrl : tx?.local_image_uri ?? null;
 
   const header = (
     <View style={styles.header}>
@@ -142,7 +143,7 @@ export default function TransactionDetailModal() {
           <DetailRow icon="calendar-clock" label="Tanggal" value={formattedDate} />
         </View>
 
-        {tx.image_path ? (
+        {tx.image_path || tx.local_image_uri ? (
           <TouchableOpacity
             style={styles.photoCard}
             activeOpacity={0.85}

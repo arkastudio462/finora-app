@@ -1,8 +1,28 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef, ReactNode } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { RECEIPTS_BUCKET, removeImageFile } from '@/lib/images';
+import { RECEIPTS_BUCKET, removeImageFile, removeStagedFile } from '@/lib/images';
 import { useAuth } from '@/hooks/useAuth';
 import { formatRupiah } from '@/utils/format';
+import { newId } from '@/lib/id';
+import { readFinanceCache, writeFinanceCache, type CachedFinance } from '@/lib/offlineCache';
+import {
+  OFFLINE_MESSAGE,
+  enqueueOutbox,
+  flushOutbox,
+  isNetworkError,
+  outboxCount,
+  type BudgetPatch,
+  type BudgetRow,
+  type DebtPatch,
+  type DebtPaymentRow,
+  type DebtRow,
+  type OutboxOp,
+  type RecurringPatch,
+  type RecurringRow,
+  type TxPatch,
+  type TxRow,
+} from '@/lib/outbox';
 
 export type PaymentMethod = 'cash' | 'non_cash';
 
@@ -15,6 +35,7 @@ export interface Transaction {
   payment_method: PaymentMethod;
   image_path: string | null;
   date: string;
+  local_image_uri?: string | null;
 }
 
 export interface Budget {
@@ -52,6 +73,10 @@ interface FinanceState {
   recurring: RecurringTransaction[];
   debts: Debt[];
   debtPayments: DebtPayment[];
+  stale: boolean;
+  lastSyncAt: number | null;
+  pendingCount: number;
+  syncError: string | null;
 }
 
 type FinanceAction =
@@ -76,7 +101,8 @@ type FinanceAction =
   | { type: 'UPDATE_DEBT'; payload: Debt }
   | { type: 'DELETE_DEBT'; payload: string }
   | { type: 'SET_DEBT_PAYMENTS'; payload: DebtPayment[] }
-  | { type: 'ADD_DEBT_PAYMENT'; payload: DebtPayment };
+  | { type: 'ADD_DEBT_PAYMENT'; payload: DebtPayment }
+  | { type: 'SET_SYNC'; payload: Partial<Pick<FinanceState, 'stale' | 'lastSyncAt' | 'pendingCount' | 'syncError'>> };
 
 const initialState: FinanceState = {
   income: 0,
@@ -93,6 +119,10 @@ const initialState: FinanceState = {
   recurring: [],
   debts: [],
   debtPayments: [],
+  stale: false,
+  lastSyncAt: null,
+  pendingCount: 0,
+  syncError: null,
 };
 
 const PAGE_SIZE = 100;
@@ -260,6 +290,9 @@ function financeReducer(state: FinanceState, action: FinanceAction): FinanceStat
     case 'ADD_DEBT_PAYMENT':
       return { ...state, debtPayments: [...state.debtPayments, action.payload] };
 
+    case 'SET_SYNC':
+      return { ...state, ...action.payload };
+
     default:
       return state;
   }
@@ -291,6 +324,66 @@ function getWriteErrorMessage(error: { code?: string; message?: string }): strin
     return 'Tidak punya akses menyimpan data. Silakan login ulang.';
   }
   return `Gagal menyimpan: ${message || code || 'unknown error'}`;
+}
+
+function getReadErrorMessage(error: { code?: string; message?: string }): string {
+  if (isNetworkError(error)) return OFFLINE_MESSAGE;
+
+  const code = error.code || '';
+  const message = error.message || '';
+
+  if (code === 'PGRST301' || code === '42501') {
+    return 'Tidak punya akses membaca data. Silakan login ulang.';
+  }
+  if (code === '42P01' || (message.includes('relation') && message.includes('does not exist'))) {
+    return 'Tabel belum dibuat. Jalankan supabase/migration.sql di Supabase SQL Editor.';
+  }
+  if (code === '42703' || code === 'PGRST204') {
+    return `Kolom tidak ditemukan di database (${message}). Jalankan file SQL upgrade terbaru di Supabase SQL Editor.`;
+  }
+  return `Gagal memuat data: ${message || code || 'unknown error'}`;
+}
+
+type NetOk<T> = { ok: true; data: T };
+type NetFail = { ok: false; offline: boolean; message: string };
+
+async function net<T>(
+  run: () => PromiseLike<{ data: unknown; error: unknown }>,
+  kind: 'read' | 'write' = 'write'
+): Promise<NetOk<T> | NetFail> {
+  try {
+    const { data, error } = await run();
+    if (error) {
+      const err = error as { code?: string; message?: string };
+      if (isNetworkError(err)) return { ok: false, offline: true, message: OFFLINE_MESSAGE };
+      if (err.code === '23505' || /duplicate key value/i.test(err.message || '')) {
+        return { ok: true, data: null as unknown as T };
+      }
+      const message = kind === 'read' ? getReadErrorMessage(err) : getWriteErrorMessage(err);
+      return { ok: false, offline: false, message };
+    }
+    return { ok: true, data: data as T };
+  } catch (e) {
+    if (isNetworkError(e)) return { ok: false, offline: true, message: OFFLINE_MESSAGE };
+    return { ok: false, offline: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+function cacheToPayload(cache: CachedFinance, stale: boolean): Partial<FinanceState> {
+  return {
+    income: cache.income,
+    expense: cache.expense,
+    monthIncome: cache.monthIncome,
+    monthExpense: cache.monthExpense,
+    transactions: cache.transactions,
+    totalTransactions: cache.totalTransactions,
+    budgets: cache.budgets,
+    recurring: cache.recurring,
+    debts: cache.debts,
+    debtPayments: cache.debtPayments,
+    stale,
+    lastSyncAt: cache.savedAt,
+  };
 }
 
 function mapTransaction(t: Record<string, unknown>): Transaction {
@@ -406,10 +499,13 @@ function mapDebtPayment(p: Record<string, unknown>): DebtPayment {
 interface FinanceContextType {
   state: FinanceState;
   reload: () => Promise<void>;
+  syncNow: () => Promise<void>;
   loadMoreTransactions: () => Promise<string | null>;
-  getAllTransactions: () => Promise<{ rows: Transaction[] } | { error: string }>;
-  addTransaction: (t: Omit<Transaction, 'id' | 'date'>) => Promise<string | null>;
-  updateTransaction: (t: Transaction) => Promise<string | null>;
+  getAllTransactions: () => Promise<{ rows: Transaction[]; partial?: boolean } | { error: string }>;
+  addTransaction: (
+    t: Omit<Transaction, 'id' | 'date'> & { localImageUri?: string | null }
+  ) => Promise<string | null>;
+  updateTransaction: (t: Transaction & { localImageUri?: string | null }) => Promise<string | null>;
   deleteTransaction: (id: string) => Promise<void>;
   addRecurring: (r: Omit<RecurringTransaction, 'id'>) => Promise<string | null>;
   updateRecurring: (r: RecurringTransaction) => Promise<string | null>;
@@ -437,14 +533,42 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(financeReducer, initialState);
   const { user } = useAuth();
 
+  const hydratedRef = useRef(false);
+  const syncingRef = useRef(false);
+  const staleRef = useRef(false);
+
+  useEffect(() => {
+    staleRef.current = state.stale;
+  }, [state.stale]);
+
   useEffect(() => {
     if (!user) {
+      hydratedRef.current = false;
       dispatch({ type: 'LOAD_DATA', payload: initialState });
       return;
     }
 
-    fetchData();
+    fetchData()
+      .catch(() => undefined)
+      .then(() => syncNow());
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void syncNow();
+    });
+
+    const timer = setInterval(() => {
+      if (state.pendingCount > 0 || state.stale) void syncNow();
+    }, 30000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(timer);
+    };
+  }, [user, state.pendingCount, state.stale]);
 
   const recurringBusyRef = useRef(false);
 
@@ -501,7 +625,15 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const fetchData = async () => {
     if (!user) return;
 
+    const cached = await readFinanceCache(user.id);
+
     dispatch({ type: 'LOAD_START' });
+
+    if (cached && !hydratedRef.current) {
+      hydratedRef.current = true;
+      dispatch({ type: 'LOAD_DATA', payload: cacheToPayload(cached, false) });
+      dispatch({ type: 'LOAD_START' });
+    }
 
     await processRecurring();
 
@@ -538,9 +670,21 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
     const readError = sumResult.error || txResult.error || budgetResult.error;
     if (readError) {
-      dispatch({ type: 'LOAD_ERROR', payload: getWriteErrorMessage(readError) });
+      const offline = isNetworkError(readError);
+      const fallback = cached ?? (await readFinanceCache(user.id));
+      if (fallback) {
+        dispatch({ type: 'LOAD_DATA', payload: cacheToPayload(fallback, offline) });
+      } else {
+        dispatch({ type: 'LOAD_ERROR', payload: getReadErrorMessage(readError) });
+        dispatch({ type: 'SET_SYNC', payload: { stale: offline } });
+      }
+      dispatch({ type: 'SET_SYNC', payload: { pendingCount: await outboxCount(user.id) } });
       return;
     }
+
+    const partialOffline = [recurringResult.error, debtsResult.error, paymentsResult.error].some(
+      (error) => !!error && isNetworkError(error)
+    );
 
     const transactions: Transaction[] = (txResult.data || []).map(mapTransaction);
     const budgets: Budget[] = (budgetResult.data || []).map((b) => ({
@@ -550,12 +694,15 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }));
 
     const recurring: RecurringTransaction[] = recurringResult.error
-      ? []
+      ? (cached?.recurring ?? [])
       : (recurringResult.data || []).map(mapRecurring);
 
-    const debts: Debt[] = debtsResult.error ? [] : (debtsResult.data || []).map(mapDebt);
+    const debts: Debt[] = debtsResult.error
+      ? (cached?.debts ?? [])
+      : (debtsResult.data || []).map(mapDebt);
+
     const debtPayments: DebtPayment[] = paymentsResult.error
-      ? []
+      ? (cached?.debtPayments ?? [])
       : (paymentsResult.data || []).map(mapDebtPayment);
 
     let income = 0;
@@ -572,6 +719,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       else monthExpense += Number(row.amount) || 0;
     }
 
+    const syncedAt = partialOffline ? (cached?.savedAt ?? null) : Date.now();
+
     dispatch({
       type: 'LOAD_DATA',
       payload: {
@@ -585,8 +734,52 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         recurring,
         debts,
         debtPayments,
+        stale: partialOffline,
+        lastSyncAt: syncedAt,
       },
     });
+
+    dispatch({ type: 'SET_SYNC', payload: { pendingCount: await outboxCount(user.id) } });
+
+    if (!partialOffline) {
+      hydratedRef.current = true;
+      await writeFinanceCache(user.id, {
+        savedAt: syncedAt ?? Date.now(),
+        income,
+        expense,
+        monthIncome,
+        monthExpense,
+        transactions,
+        totalTransactions: txResult.count ?? transactions.length,
+        budgets,
+        recurring,
+        debts,
+        debtPayments,
+      });
+    }
+  };
+
+  const syncNow = async () => {
+    if (!user || syncingRef.current) return;
+
+    syncingRef.current = true;
+    try {
+      const pending = await outboxCount(user.id);
+      if (pending > 0) {
+        const outcome = await flushOutbox(user.id);
+        const remaining = await outboxCount(user.id);
+        dispatch({ type: 'SET_SYNC', payload: { pendingCount: remaining, syncError: outcome.error } });
+
+        if (outcome.empty) {
+          await fetchData();
+          return;
+        }
+      }
+
+      if (staleRef.current) await fetchData();
+    } finally {
+      syncingRef.current = false;
+    }
   };
 
   const loadMoreTransactions = async (): Promise<string | null> => {
@@ -597,76 +790,152 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
     dispatch({ type: 'LOAD_MORE_START' });
 
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('date', { ascending: false })
-      .range(from, from + PAGE_SIZE - 1);
+    const result = await net(
+      () =>
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1),
+      'read'
+    );
 
-    if (error) {
+    if (!result.ok) {
       dispatch({ type: 'LOAD_MORE_END' });
-      return getWriteErrorMessage(error);
+      return result.message;
     }
 
-    dispatch({ type: 'APPEND_TRANSACTIONS', payload: (data || []).map(mapTransaction) });
+    dispatch({ type: 'APPEND_TRANSACTIONS', payload: ((result.data as Record<string, unknown>[]) || []).map(mapTransaction) });
     return null;
   };
 
-  const addTransaction = async (t: Omit<Transaction, 'id' | 'date'>): Promise<string | null> => {
+  const queueOutbox = async (op: OutboxOp, optimistic: () => void): Promise<string | null> => {
     if (!user) return 'Anda belum login';
 
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: user.id,
-        type: t.type,
-        description: t.description,
-        category: t.category,
-        amount: t.amount,
-        payment_method: t.payment_method,
-        image_path: t.image_path ?? null,
-      })
-      .select()
-      .single();
+    await enqueueOutbox(user.id, op);
+    optimistic();
+    dispatch({
+      type: 'SET_SYNC',
+      payload: { pendingCount: await outboxCount(user.id), syncError: null },
+    });
+    return null;
+  };
 
-    if (error) return getWriteErrorMessage(error);
-    if (!data) return 'Transaksi gagal disimpan';
+  const addTransaction = async (
+    t: Omit<Transaction, 'id' | 'date'> & { localImageUri?: string | null }
+  ): Promise<string | null> => {
+    if (!user) return 'Anda belum login';
 
-    const newTx: Transaction = {
-      id: data.id,
-      type: data.type,
-      description: data.description,
-      category: data.category,
-      amount: data.amount,
-      payment_method: data.payment_method === 'non_cash' ? 'non_cash' : 'cash',
-      image_path: data.image_path ?? null,
-      date: data.date,
+    const txId = newId();
+    const row: TxRow = {
+      id: txId,
+      user_id: user.id,
+      type: t.type,
+      description: t.description,
+      category: t.category,
+      amount: t.amount,
+      payment_method: t.payment_method,
+      image_path: t.image_path ?? null,
+      date: new Date().toISOString(),
     };
 
-    dispatch({ type: 'ADD_TRANSACTION', payload: newTx });
+    const queued: OutboxOp = {
+      id: newId(),
+      kind: 'addTransaction',
+      row,
+      localImageUri: t.localImageUri ?? null,
+      createdAt: Date.now(),
+    };
+
+    const optimistic = () =>
+      dispatch({
+        type: 'ADD_TRANSACTION',
+        payload: { ...row, local_image_uri: t.localImageUri ?? null },
+      });
+
+    if (t.localImageUri) {
+      return queueOutbox(queued, optimistic);
+    }
+
+    const result = await net(() => supabase.from('transactions').insert(row).select().single());
+    if (!result.ok) {
+      if (result.offline) return queueOutbox(queued, optimistic);
+      return result.message;
+    }
+
+    const data = result.data as Record<string, unknown> | null;
+    if (!data) return 'Transaksi gagal disimpan';
+
+    dispatch({ type: 'ADD_TRANSACTION', payload: mapTransaction(data) });
     return null;
   };
 
-  const updateTransaction = async (t: Transaction): Promise<string | null> => {
+  const updateTransaction = async (
+    t: Transaction & { localImageUri?: string | null }
+  ): Promise<string | null> => {
     if (!user) return 'Anda belum login';
 
-    const { error } = await supabase
-      .from('transactions')
-      .update({
-        type: t.type,
-        description: t.description,
-        category: t.category,
-        amount: t.amount,
-        payment_method: t.payment_method,
-        image_path: t.image_path ?? null,
-      })
-      .eq('id', t.id)
-      .eq('user_id', user.id);
+    const old = state.transactions.find((item) => item.id === t.id);
 
-    if (error) return getWriteErrorMessage(error);
+    const patch: TxPatch = {
+      type: t.type,
+      description: t.description,
+      category: t.category,
+      amount: t.amount,
+      payment_method: t.payment_method,
+      image_path: t.image_path ?? null,
+    };
 
-    dispatch({ type: 'UPDATE_TRANSACTION', payload: t });
+    const updatedTx: Transaction = { ...t, local_image_uri: t.localImageUri ?? t.local_image_uri ?? null };
+
+    const optimistic = () => dispatch({ type: 'UPDATE_TRANSACTION', payload: updatedTx });
+
+    if (t.localImageUri) {
+      return queueOutbox(
+        {
+          id: newId(),
+          kind: 'updateTransaction',
+          txId: t.id,
+          patch,
+          localImageUri: t.localImageUri,
+          oldImagePath: old?.image_path ?? null,
+          createdAt: Date.now(),
+        },
+        optimistic
+      );
+    }
+
+    const result = await net(() =>
+      supabase.from('transactions').update(patch).eq('id', t.id).eq('user_id', user.id)
+    );
+
+    if (!result.ok) {
+      if (result.offline) {
+        return queueOutbox(
+          {
+            id: newId(),
+            kind: 'updateTransaction',
+            txId: t.id,
+            patch,
+            oldImagePath: old?.image_path ?? null,
+            createdAt: Date.now(),
+          },
+          optimistic
+        );
+      }
+      return result.message;
+    }
+
+    if (old?.image_path && old.image_path !== (t.image_path ?? null)) {
+      removeImageFile(RECEIPTS_BUCKET, old.image_path);
+    }
+
+    if (old?.local_image_uri && !t.localImageUri) {
+      removeStagedFile(old.local_image_uri);
+    }
+
+    dispatch({ type: 'UPDATE_TRANSACTION', payload: updatedTx });
     return null;
   };
 
@@ -675,53 +944,96 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
     const deleted = state.transactions.find((t) => t.id === id);
 
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
+    const result = await net(() =>
+      supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id)
+    );
 
-    if (!error) {
+    if (result.ok) {
       if (deleted && deleted.image_path) {
         removeImageFile(RECEIPTS_BUCKET, deleted.image_path);
       }
       dispatch({ type: 'DELETE_TRANSACTION', payload: id });
+      return;
+    }
+
+    if (result.offline) {
+      await queueOutbox(
+        {
+          id: newId(),
+          kind: 'deleteTransaction',
+          txId: id,
+          imagePath: deleted?.image_path ?? null,
+          createdAt: Date.now(),
+        },
+        () => dispatch({ type: 'DELETE_TRANSACTION', payload: id })
+      );
     }
   };
 
-  const getAllTransactions = async (): Promise<{ rows: Transaction[] } | { error: string }> => {
+  const getAllTransactions = async (): Promise<
+    { rows: Transaction[]; partial?: boolean } | { error: string }
+  > => {
     if (!user) return { error: 'Anda belum login' };
 
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('date', { ascending: false });
+    const result = await net(
+      () =>
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false }),
+      'read'
+    );
 
-    if (error) return { error: getWriteErrorMessage(error) };
-    return { rows: (data || []).map(mapTransaction) };
+    if (!result.ok) {
+      if (result.offline) return { rows: state.transactions, partial: true };
+      return { error: result.message };
+    }
+
+    return { rows: ((result.data as Record<string, unknown>[]) || []).map(mapTransaction) };
   };
 
   const addRecurring = async (r: Omit<RecurringTransaction, 'id'>): Promise<string | null> => {
     if (!user) return 'Anda belum login';
 
-    const { data, error } = await supabase
-      .from('recurring_transactions')
-      .insert({
-        user_id: user.id,
-        type: r.type,
-        description: r.description,
-        category: r.category,
-        amount: r.amount,
-        payment_method: r.payment_method,
-        frequency: r.frequency,
-        next_date: r.next_date,
-        active: r.active,
-      })
-      .select()
-      .single();
+    const row: RecurringRow = {
+      id: newId(),
+      user_id: user.id,
+      type: r.type,
+      description: r.description,
+      category: r.category,
+      amount: r.amount,
+      payment_method: r.payment_method,
+      frequency: r.frequency,
+      next_date: r.next_date,
+      active: r.active,
+    };
 
-    if (error) return getWriteErrorMessage(error);
+    const optimistic = () =>
+      dispatch({
+        type: 'ADD_RECURRING',
+        payload: {
+          id: row.id,
+          type: row.type,
+          description: row.description,
+          category: row.category,
+          amount: row.amount,
+          payment_method: row.payment_method,
+          frequency: row.frequency,
+          next_date: row.next_date,
+          active: row.active,
+        },
+      });
+
+    const result = await net(() => supabase.from('recurring_transactions').insert(row).select().single());
+    if (!result.ok) {
+      if (result.offline) {
+        return queueOutbox({ id: newId(), kind: 'addRecurring', row, createdAt: Date.now() }, optimistic);
+      }
+      return result.message;
+    }
+
+    const data = result.data as Record<string, unknown> | null;
     if (!data) return 'Transaksi berulang gagal disimpan';
 
     dispatch({ type: 'ADD_RECURRING', payload: mapRecurring(data) });
@@ -731,22 +1043,36 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const updateRecurring = async (r: RecurringTransaction): Promise<string | null> => {
     if (!user) return 'Anda belum login';
 
-    const { error } = await supabase
-      .from('recurring_transactions')
-      .update({
-        type: r.type,
-        description: r.description,
-        category: r.category,
-        amount: r.amount,
-        payment_method: r.payment_method,
-        frequency: r.frequency,
-        next_date: r.next_date,
-        active: r.active,
-      })
-      .eq('id', r.id)
-      .eq('user_id', user.id);
+    const patch: RecurringPatch = {
+      type: r.type,
+      description: r.description,
+      category: r.category,
+      amount: r.amount,
+      payment_method: r.payment_method,
+      frequency: r.frequency,
+      next_date: r.next_date,
+      active: r.active,
+    };
 
-    if (error) return getWriteErrorMessage(error);
+    const optimistic = () => dispatch({ type: 'UPDATE_RECURRING', payload: r });
+
+    const result = await net(() =>
+      supabase
+        .from('recurring_transactions')
+        .update(patch)
+        .eq('id', r.id)
+        .eq('user_id', user.id)
+    );
+
+    if (!result.ok) {
+      if (result.offline) {
+        return queueOutbox(
+          { id: newId(), kind: 'updateRecurring', recurringId: r.id, patch, createdAt: Date.now() },
+          optimistic
+        );
+      }
+      return result.message;
+    }
 
     dispatch({ type: 'UPDATE_RECURRING', payload: r });
     return null;
@@ -755,13 +1081,19 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const deleteRecurring = async (id: string): Promise<string | null> => {
     if (!user) return 'Anda belum login';
 
-    const { error } = await supabase
-      .from('recurring_transactions')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
+    const result = await net(() =>
+      supabase.from('recurring_transactions').delete().eq('id', id).eq('user_id', user.id)
+    );
 
-    if (error) return getWriteErrorMessage(error);
+    if (!result.ok) {
+      if (result.offline) {
+        return queueOutbox(
+          { id: newId(), kind: 'deleteRecurring', recurringId: id, createdAt: Date.now() },
+          () => dispatch({ type: 'DELETE_RECURRING', payload: id })
+        );
+      }
+      return result.message;
+    }
 
     dispatch({ type: 'DELETE_RECURRING', payload: id });
     return null;
@@ -775,23 +1107,46 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const addDebt = async (d: Omit<Debt, 'id' | 'created_at'>): Promise<string | null> => {
     if (!user) return 'Anda belum login';
 
-    const { data, error } = await supabase
-      .from('debts')
-      .insert({
-        user_id: user.id,
-        kind: d.kind,
-        counterparty: d.counterparty,
-        description: d.description,
-        amount: d.amount,
-        category: d.category,
-        payment_method: d.payment_method,
-        due_date: d.due_date,
-        status: d.status,
-      })
-      .select()
-      .single();
+    const row: DebtRow = {
+      id: newId(),
+      user_id: user.id,
+      kind: d.kind,
+      counterparty: d.counterparty,
+      description: d.description,
+      amount: d.amount,
+      category: d.category,
+      payment_method: d.payment_method,
+      due_date: d.due_date,
+      status: d.status,
+      created_at: new Date().toISOString(),
+    };
 
-    if (error) return getWriteErrorMessage(error);
+    const optimistic = () =>
+      dispatch({
+        type: 'ADD_DEBT',
+        payload: {
+          id: row.id,
+          kind: row.kind,
+          counterparty: row.counterparty,
+          description: row.description,
+          amount: row.amount,
+          category: row.category,
+          payment_method: row.payment_method,
+          due_date: row.due_date,
+          status: row.status,
+          created_at: row.created_at,
+        },
+      });
+
+    const result = await net(() => supabase.from('debts').insert(row).select().single());
+    if (!result.ok) {
+      if (result.offline) {
+        return queueOutbox({ id: newId(), kind: 'addDebt', row, createdAt: Date.now() }, optimistic);
+      }
+      return result.message;
+    }
+
+    const data = result.data as Record<string, unknown> | null;
     if (!data) return 'Hutang/tagihan gagal disimpan';
 
     dispatch({ type: 'ADD_DEBT', payload: mapDebt(data) });
@@ -803,22 +1158,32 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
     const status: DebtStatus = getDebtPaid(d.id) >= d.amount - 0.0001 ? 'paid' : 'open';
 
-    const { error } = await supabase
-      .from('debts')
-      .update({
-        kind: d.kind,
-        counterparty: d.counterparty,
-        description: d.description,
-        amount: d.amount,
-        category: d.category,
-        payment_method: d.payment_method,
-        due_date: d.due_date,
-        status,
-      })
-      .eq('id', d.id)
-      .eq('user_id', user.id);
+    const patch: DebtPatch = {
+      kind: d.kind,
+      counterparty: d.counterparty,
+      description: d.description,
+      amount: d.amount,
+      category: d.category,
+      payment_method: d.payment_method,
+      due_date: d.due_date,
+      status,
+    };
 
-    if (error) return getWriteErrorMessage(error);
+    const optimistic = () => dispatch({ type: 'UPDATE_DEBT', payload: { ...d, status } });
+
+    const result = await net(() =>
+      supabase.from('debts').update(patch).eq('id', d.id).eq('user_id', user.id)
+    );
+
+    if (!result.ok) {
+      if (result.offline) {
+        return queueOutbox(
+          { id: newId(), kind: 'updateDebt', debtId: d.id, patch, createdAt: Date.now() },
+          optimistic
+        );
+      }
+      return result.message;
+    }
 
     dispatch({ type: 'UPDATE_DEBT', payload: { ...d, status } });
     return null;
@@ -831,8 +1196,21 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       .filter((p) => p.debt_id === id && p.transaction_id)
       .map((p) => p.transaction_id as string);
 
-    const { error } = await supabase.from('debts').delete().eq('id', id).eq('user_id', user.id);
-    if (error) return getWriteErrorMessage(error);
+    const removeLinked = () => {
+      txIds.forEach((txId) => dispatch({ type: 'DELETE_TRANSACTION', payload: txId }));
+      dispatch({ type: 'DELETE_DEBT', payload: id });
+    };
+
+    const result = await net(() => supabase.from('debts').delete().eq('id', id).eq('user_id', user.id));
+    if (!result.ok) {
+      if (result.offline) {
+        return queueOutbox(
+          { id: newId(), kind: 'deleteDebt', debtId: id, txIds, createdAt: Date.now() },
+          removeLinked
+        );
+      }
+      return result.message;
+    }
 
     if (txIds.length > 0) {
       await supabase.from('transactions').delete().in('id', txIds).eq('user_id', user.id);
@@ -861,58 +1239,126 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }
 
     const isPayable = debt.kind === 'payable';
-    const { data: tx, error: txError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: user.id,
-        type: isPayable ? 'expense' : 'income',
-        description: isPayable
-          ? `Bayar hutang ${debt.counterparty}`
-          : `Terima tagihan ${debt.counterparty}`,
-        category: debt.category,
-        amount,
-        payment_method: paymentMethod ?? debt.payment_method,
-        image_path: null,
-      })
-      .select()
-      .single();
+    const now = new Date().toISOString();
 
-    if (txError) return getWriteErrorMessage(txError);
-    if (!tx) return 'Transaksi pembayaran gagal dibuat';
+    const txRow: TxRow = {
+      id: newId(),
+      user_id: user.id,
+      type: isPayable ? 'expense' : 'income',
+      description: isPayable
+        ? `Bayar hutang ${debt.counterparty}`
+        : `Terima tagihan ${debt.counterparty}`,
+      category: debt.category,
+      amount,
+      payment_method: paymentMethod ?? debt.payment_method,
+      image_path: null,
+      date: now,
+    };
 
-    const { data: payment, error: payError } = await supabase
-      .from('debt_payments')
-      .insert({
-        user_id: user.id,
-        debt_id: debtId,
-        amount,
-        transaction_id: tx.id,
-        note: note && note.trim() ? note.trim() : null,
-      })
-      .select()
-      .single();
-
-    if (payError) {
-      await supabase.from('transactions').delete().eq('id', tx.id).eq('user_id', user.id);
-      return getWriteErrorMessage(payError);
-    }
+    const paymentRow: DebtPaymentRow = {
+      id: newId(),
+      user_id: user.id,
+      debt_id: debtId,
+      amount,
+      transaction_id: txRow.id,
+      note: note && note.trim() ? note.trim() : null,
+      paid_at: now,
+    };
 
     const nowPaid = paid + amount;
     const status: DebtStatus = nowPaid >= debt.amount - 0.0001 ? 'paid' : 'open';
 
+    const paymentPayload: DebtPayment = {
+      id: paymentRow.id,
+      debt_id: paymentRow.debt_id,
+      amount: paymentRow.amount,
+      transaction_id: paymentRow.transaction_id,
+      note: paymentRow.note,
+      paid_at: paymentRow.paid_at,
+    };
+
+    const dispatchPayment = () => {
+      dispatch({ type: 'ADD_TRANSACTION', payload: { ...txRow, local_image_uri: null } });
+      dispatch({ type: 'ADD_DEBT_PAYMENT', payload: paymentPayload });
+    };
+
+    const queued: OutboxOp = {
+      id: newId(),
+      kind: 'addDebtPayment',
+      tx: txRow,
+      payment: paymentRow,
+      debtId,
+      status,
+      createdAt: Date.now(),
+    };
+
+    const txResult = await net(() =>
+      supabase.from('transactions').insert(txRow).select().single()
+    );
+    if (!txResult.ok) {
+      if (txResult.offline) {
+        return queueOutbox(queued, () => {
+          if (status !== debt.status) {
+            dispatch({ type: 'UPDATE_DEBT', payload: { ...debt, status } });
+          }
+          dispatchPayment();
+        });
+      }
+      return txResult.message;
+    }
+
+    const txData = txResult.data as Record<string, unknown> | null;
+    if (!txData) return 'Transaksi pembayaran gagal dibuat';
+
+    const payResult = await net(() =>
+      supabase
+        .from('debt_payments')
+        .insert({ ...paymentRow, transaction_id: txData.id })
+        .select()
+        .single()
+    );
+
+    if (!payResult.ok) {
+      if (payResult.offline) {
+        return queueOutbox(queued, () => {
+          if (status !== debt.status) {
+            dispatch({ type: 'UPDATE_DEBT', payload: { ...debt, status } });
+          }
+          dispatchPayment();
+        });
+      }
+
+      await supabase.from('transactions').delete().eq('id', txData.id).eq('user_id', user.id);
+      return payResult.message;
+    }
+
+    const paymentData = payResult.data as Record<string, unknown> | null;
+    if (!paymentData) return 'Pembayaran gagal disimpan';
+
     if (status !== debt.status) {
-      const { error: statusError } = await supabase
-        .from('debts')
-        .update({ status })
-        .eq('id', debtId)
-        .eq('user_id', user.id);
-      if (statusError) return getWriteErrorMessage(statusError);
+      const statusResult = await net(() =>
+        supabase.from('debts').update({ status }).eq('id', debtId).eq('user_id', user.id)
+      );
+
+      if (!statusResult.ok && !statusResult.offline) {
+        await supabase.from('transactions').delete().eq('id', txData.id).eq('user_id', user.id);
+        await supabase.from('debt_payments').delete().eq('id', paymentData.id).eq('user_id', user.id);
+        return statusResult.message;
+      }
+
+      if (!statusResult.ok) {
+        await enqueueOutbox(user.id, queued);
+        dispatch({
+          type: 'SET_SYNC',
+          payload: { pendingCount: await outboxCount(user.id), syncError: null },
+        });
+      }
 
       dispatch({ type: 'UPDATE_DEBT', payload: { ...debt, status } });
     }
 
-    dispatch({ type: 'ADD_TRANSACTION', payload: mapTransaction(tx) });
-    dispatch({ type: 'ADD_DEBT_PAYMENT', payload: mapDebtPayment(payment) });
+    dispatch({ type: 'ADD_TRANSACTION', payload: mapTransaction(txData) });
+    dispatch({ type: 'ADD_DEBT_PAYMENT', payload: mapDebtPayment(paymentData) });
     return null;
   };
 
@@ -922,22 +1368,27 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     const existing = state.budgets.find((b) => b.category === category);
     if (existing) return 'Budget for this category already exists';
 
-    const { data, error } = await supabase
-      .from('budgets')
-      .insert({
-        user_id: user.id,
-        category,
-        amount,
-      })
-      .select()
-      .single();
+    const row: BudgetRow = { id: newId(), user_id: user.id, category, amount };
+    const optimistic = () => dispatch({ type: 'ADD_BUDGET', payload: { id: row.id, category, amount } });
 
-    if (error || !data) return 'Failed to add budget';
+    const result = await net(() => supabase.from('budgets').insert(row).select().single());
+    if (!result.ok) {
+      if (result.offline) {
+        return queueOutbox({ id: newId(), kind: 'addBudget', row, createdAt: Date.now() }, optimistic);
+      }
+      return result.message || 'Failed to add budget';
+    }
+
+    const data = result.data as Record<string, unknown> | null;
+    if (!data) {
+      optimistic();
+      return null;
+    }
 
     const newBudget: Budget = {
-      id: data.id,
-      category: data.category,
-      amount: data.amount,
+      id: String(data.id),
+      category: String(data.category),
+      amount: Number(data.amount) || 0,
     };
 
     dispatch({ type: 'ADD_BUDGET', payload: newBudget });
@@ -947,28 +1398,43 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const updateBudget = async (b: Budget) => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from('budgets')
-      .update({ amount: b.amount })
-      .eq('id', b.id)
-      .eq('user_id', user.id);
+    const patch: BudgetPatch = { amount: b.amount };
+    const optimistic = () => dispatch({ type: 'UPDATE_BUDGET', payload: b });
 
-    if (!error) {
+    const result = await net(() =>
+      supabase.from('budgets').update(patch).eq('id', b.id).eq('user_id', user.id)
+    );
+
+    if (result.ok) {
       dispatch({ type: 'UPDATE_BUDGET', payload: b });
+      return;
+    }
+
+    if (result.offline) {
+      await queueOutbox(
+        { id: newId(), kind: 'updateBudget', budgetId: b.id, patch, createdAt: Date.now() },
+        optimistic
+      );
     }
   };
 
   const deleteBudget = async (id: string) => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from('budgets')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
+    const result = await net(() =>
+      supabase.from('budgets').delete().eq('id', id).eq('user_id', user.id)
+    );
 
-    if (!error) {
+    if (result.ok) {
       dispatch({ type: 'DELETE_BUDGET', payload: id });
+      return;
+    }
+
+    if (result.offline) {
+      await queueOutbox(
+        { id: newId(), kind: 'deleteBudget', budgetId: id, createdAt: Date.now() },
+        () => dispatch({ type: 'DELETE_BUDGET', payload: id })
+      );
     }
   };
 
@@ -1001,6 +1467,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       value={{
         state,
         reload: fetchData,
+        syncNow,
         loadMoreTransactions,
         getAllTransactions,
         addTransaction,

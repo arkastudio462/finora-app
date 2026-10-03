@@ -129,3 +129,63 @@ export async function removeImageFile(bucket: string, path: string): Promise<voi
     // best-effort
   }
 }
+
+const PENDING_DIR = `${FileSystem.documentDirectory ?? ''}pending/`;
+const RECEIPT_CACHE_DIR = `${FileSystem.documentDirectory ?? ''}receipt-cache/`;
+
+function safeExtFor(uri: string): string {
+  const ext = (uri.split('?')[0].split('.').pop() || 'jpg').toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) ? (ext === 'jpeg' ? 'jpg' : ext) : 'jpg';
+}
+
+async function ensureDir(dir: string): Promise<boolean> {
+  try {
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+    return true;
+  } catch {
+    return FileSystem.getInfoAsync(dir).then((info) => info.exists).catch(() => false);
+  }
+}
+
+export async function stageImageForUpload(uri: string): Promise<string | null> {
+  try {
+    if (!(await ensureDir(PENDING_DIR))) return null;
+    const dest = `${PENDING_DIR}${Date.now()}-${Math.round(Math.random() * 1e6)}.${safeExtFor(uri)}`;
+    await FileSystem.copyAsync({ from: uri, to: dest });
+    return dest;
+  } catch {
+    return null;
+  }
+}
+
+export async function removeStagedFile(uri?: string | null): Promise<void> {
+  if (!uri) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch {
+  }
+}
+
+export function receiptCachePath(path: string): string {
+  return `${RECEIPT_CACHE_DIR}${path.replace(/[^A-Za-z0-9._-]/g, '_')}`;
+}
+
+export async function downloadToReceiptCache(url: string, path: string): Promise<string | null> {
+  try {
+    if (!(await ensureDir(RECEIPT_CACHE_DIR))) return null;
+    const dest = receiptCachePath(path);
+    const result = await FileSystem.downloadAsync(url, dest);
+    return result.uri ?? dest;
+  } catch {
+    return null;
+  }
+}
+
+export async function readReceiptCache(path: string): Promise<string | null> {
+  try {
+    const info = await FileSystem.getInfoAsync(receiptCachePath(path));
+    return info.exists ? receiptCachePath(path) : null;
+  } catch {
+    return null;
+  }
+}

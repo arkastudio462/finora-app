@@ -4,7 +4,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FinanceProvider } from '@/context/FinanceContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { ToastProvider } from '@/components/Toast';
@@ -28,6 +29,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { resolved, colors } = useTheme();
   const segments = useSegments();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [welcomeReady, setWelcomeReady] = useState(false);
 
   useEffect(() => {
@@ -77,10 +79,25 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     <>
       <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
       {children}
-      <UpdateBanner />
+      <View
+        pointerEvents="box-none"
+        style={[styles.banners, { top: insets.top + 10 }]}
+      >
+        <UpdateBanner />
+      </View>
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  banners: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    gap: 8,
+    zIndex: 999,
+  },
+});
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({

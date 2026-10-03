@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { readTrendCache, writeTrendCache, type CachedTrendRow } from '@/lib/offlineCache';
 
 export interface TrendPoint {
   key: string;
@@ -45,8 +46,21 @@ export function useMonthlyTrend(months = 6, refreshToken = 0) {
           .eq('user_id', user.id)
           .gte('date', start.toISOString());
 
+        let source: CachedTrendRow[] | null = null;
+
         if (!error && rows) {
-          for (const row of rows) {
+          source = rows.map((row) => ({
+            type: String(row.type),
+            amount: row.amount,
+            date: String(row.date),
+          }));
+          await writeTrendCache(user.id, source);
+        } else if (error) {
+          source = await readTrendCache(user.id);
+        }
+
+        if (source) {
+          for (const row of source) {
             const d = new Date(row.date);
             const bucket = buckets.find((b) => b.year === d.getFullYear() && b.month === d.getMonth());
             if (!bucket) continue;

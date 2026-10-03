@@ -17,7 +17,8 @@ import { useCustomCategories, MAX_CATEGORY_LENGTH } from '@/hooks/useCustomCateg
 import { useAuth } from '@/hooks/useAuth';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import PhotoPicker from '@/components/PhotoPicker';
-import { RECEIPTS_BUCKET, uploadImageFile, removeImageFile } from '@/lib/images';
+import { RECEIPTS_BUCKET, stageImageForUpload, uploadImageFile } from '@/lib/images';
+import { isNetworkError } from '@/lib/outbox';
 import { COLORS, CATEGORIES } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, useStyles } from '@/context/ThemeContext';
@@ -72,7 +73,7 @@ export default function AddTransactionModal() {
         setCategory(tx.category);
         setPaymentMethod(tx.payment_method === 'non_cash' ? 'non_cash' : 'cash');
         setImagePath(tx.image_path ?? null);
-        setPhotoUri(null);
+        setPhotoUri(tx.local_image_uri && !tx.image_path ? tx.local_image_uri : null);
         setImageRemoved(false);
       }
     }
@@ -114,6 +115,7 @@ export default function AddTransactionModal() {
     if (!known) await addCategory(category);
 
     let finalImagePath = imageRemoved ? null : imagePath;
+    let localImageUri: string | null = null;
 
     if (photoUri) {
       if (!user) {
@@ -123,10 +125,20 @@ export default function AddTransactionModal() {
       showToast('Mengupload foto...', 'info');
       const uploaded = await uploadImageFile(RECEIPTS_BUCKET, photoUri, user.id);
       if ('error' in uploaded) {
-        alert.error(uploaded.error, 'Gagal upload foto');
-        return;
+        if (!isNetworkError(uploaded.error)) {
+          alert.error(uploaded.error, 'Gagal upload foto');
+          return;
+        }
+        const staged = await stageImageForUpload(photoUri);
+        if (!staged) {
+          alert.error(uploaded.error, 'Gagal upload foto');
+          return;
+        }
+        localImageUri = staged;
+        finalImagePath = null;
+      } else {
+        finalImagePath = uploaded.path;
       }
-      finalImagePath = uploaded.path;
     }
 
     let error: string | null = null;
@@ -145,6 +157,7 @@ export default function AddTransactionModal() {
         amount: Number(amount),
         payment_method: paymentMethod,
         image_path: finalImagePath,
+        localImageUri,
       });
     } else {
       error = await addTransaction({
@@ -154,16 +167,13 @@ export default function AddTransactionModal() {
         amount: Number(amount),
         payment_method: paymentMethod,
         image_path: finalImagePath,
+        localImageUri,
       });
     }
 
     if (error) {
       alert.error(error, 'Gagal menyimpan');
       return;
-    }
-
-    if (imagePath && finalImagePath !== imagePath) {
-      removeImageFile(RECEIPTS_BUCKET, imagePath);
     }
 
     showToast(isEdit ? 'Transaction updated' : 'Transaction added', 'success');

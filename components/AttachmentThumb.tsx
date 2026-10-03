@@ -10,21 +10,24 @@ import type { Colors } from '@/constants/theme';
 
 interface AttachmentThumbProps {
   path?: string | null;
+  localUri?: string | null;
   bucket?: string;
   size?: number;
 }
 
 export default function AttachmentThumb({
   path,
+  localUri,
   bucket = RECEIPTS_BUCKET,
   size = 44,
 }: AttachmentThumbProps) {
   const colors = useColors();
   const styles = useStyles(createStyles);
-  const url = useSignedImageUrl(bucket, path);
+  const signedUrl = useSignedImageUrl(bucket, path);
+  const url = path ? signedUrl : localUri ?? null;
   const [preview, setPreview] = useState(false);
 
-  if (!path || !url) return null;
+  if (!url) return null;
 
   return (
     <View>

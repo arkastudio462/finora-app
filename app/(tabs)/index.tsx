@@ -24,6 +24,7 @@ import { LoadingBlock, ErrorBlock } from '@/components/DataState';
 import { useMonthlyTrend } from '@/hooks/useMonthlyTrend';
 import { useNotifications } from '@/hooks/useNotifications';
 import AttachmentThumb from '@/components/AttachmentThumb';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { useTabBarPadding } from '@/hooks/useTabBarPadding';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
@@ -430,7 +431,7 @@ function SwipeableTransactionItem({ transaction, onEdit, onDelete, onOpen }: {
         </View>
         {transaction.image_path ? (
           <View style={styles.transactionThumb}>
-            <AttachmentThumb path={transaction.image_path} />
+            <AttachmentThumb path={transaction.image_path} localUri={transaction.local_image_uri} />
           </View>
         ) : null}
         <View style={styles.transactionRight}>
@@ -564,7 +565,7 @@ export default function HomeScreen() {
   }, [pickingStart]);
 
 
-  if (state.loadError) {
+  if (state.loadError && !state.isLoaded) {
     return (
       <View
         style={[
@@ -596,6 +597,7 @@ export default function HomeScreen() {
       contentContainerStyle={{ paddingBottom: bottomPadding }}
       showsVerticalScrollIndicator={false}
     >
+      <OfflineBanner />
       <View style={styles.header}>
         <View>
           <Text style={styles.headerEyebrow}>PERSONAL FINANCE</Text>

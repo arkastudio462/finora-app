@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { pickImage, uploadImageFile, AVATARS_BUCKET } from '@/lib/images';
 import { useToast } from '@/components/Toast';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { formatRupiah } from '@/utils/format';
 import { COLORS } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -162,6 +163,7 @@ export default function ProfileScreen() {
       contentContainerStyle={{ paddingBottom: bottomPadding }}
       showsVerticalScrollIndicator={false}
     >
+      <OfflineBanner />
       <View style={styles.profileHeader}>
         <TouchableOpacity
           style={styles.avatar}

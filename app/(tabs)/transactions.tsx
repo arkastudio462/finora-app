@@ -22,6 +22,7 @@ import { useTabBarPadding } from '@/hooks/useTabBarPadding';
 import { useCustomCategories } from '@/hooks/useCustomCategories';
 import { shareTransactionsCsv } from '@/utils/exportCsv';
 import AttachmentThumb from '@/components/AttachmentThumb';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { LoadingBlock, ErrorBlock } from '@/components/DataState';
 import { useColors, useStyles } from '@/context/ThemeContext';
 import type { Colors } from '@/constants/theme';
@@ -167,7 +168,7 @@ function SwipeableTransactionItem({
 
           {transaction.image_path ? (
             <View style={styles.transactionThumb}>
-              <AttachmentThumb path={transaction.image_path} />
+              <AttachmentThumb path={transaction.image_path} localUri={transaction.local_image_uri} />
             </View>
           ) : null}
 
@@ -272,6 +273,10 @@ export default function TransactionsScreen() {
         return;
       }
 
+      if (result.partial) {
+        showToast('Mode offline: export memakai data tersimpan di perangkat', 'info');
+      }
+
       const rows = result.rows.filter(matchesFilters);
       if (rows.length === 0) {
         showToast('Tidak ada transaksi untuk diexport', 'info');
@@ -319,7 +324,7 @@ export default function TransactionsScreen() {
     setActivePayment('all');
   };
 
-  if (state.loadError) {
+  if (state.loadError && !state.isLoaded) {
     return (
       <View
         style={[
@@ -347,6 +352,7 @@ export default function TransactionsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
+      <OfflineBanner />
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Transactions</Text>
